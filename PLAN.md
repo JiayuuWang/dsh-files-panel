@@ -70,5 +70,10 @@ dsh Web GUI 增加一个右侧可伸缩"文件区"面板:显示当前工作区�
   - 新包 `packages/client/ui-files`(dsh.client):工作区根解析(useWorkspaces)→ `files.list` 懒加载树(目录在前/截断标记)→ `files.read` 只读预览;不注册 store,直接驱动 `ctx.connection.api`
   - wire 类型出口链:connection/client api.ts + index.ts + remotes/client 增加 FileEntry/FileListing/FileContent
   - 验证:14 个新测试 + 受影响面 539 全绿、repo typecheck、每文件 100% 覆盖率、client-catalog/slot-catalog 重生成、全部门禁过;test:gui 的 2 个动态导入计时测试为机器负载抖动(隔离复跑 105/105 通过)
-- [ ] C3:编辑保存 + `user/file-edit` 会话事件
+- [x] **C3(2026-08-16)**:编辑保存 + `user/file-edit` 会话事件
+  - 缝新增 `write(path, content, expectedVersion?)`:`ctx.fs.writeText` + `replaceIfVersion` 守卫,`files-stale-version` 错误码
+  - wire `files.write`(sessionId + path + content + expectedVersion);`user/file-edit` 事件(declare module `@deepseek-ai/dsh-session/types`)进 KNOWN_SESSION_EVENT_TYPES + persistence-catalog
+  - 模型可见性:`agent.inject()` system-reminder 通知(下次 pre-step 认领并记为 user/message)——model-visible ⟺ logged
+  - 编辑器:**CodeMirror 替代 Monaco**(单文件 client bundle 无 worker 管线,Agent Note 记录该取舍);保存按钮/Ctrl+S、脏标记、`files-stale-version` 冲突横幅 + 重新载入
+  - 验证:主机 31 + 客户端 25 新测试,受影响面 430 全绿、repo typecheck、双树每文件 100% 覆盖、persistence/doc-graphs/cordis 目录重生成、全门禁过;test:gui 的 3 个时序测试为机器负载抖动(隔离 42/42 通过)
 - [ ] C4:vim/emacs keymap
