@@ -21,12 +21,12 @@
 在 `deepseek-harness` 仓库根目录、base commit `47f943859b` 上:
 
 ```bash
-git apply ../dsh-files-panel/patch/c9-pane-layout-fix.dsh.diff
+git apply ../dsh-files-panel/patch/c10-persist-key-fix.dsh.diff
 pnpm install
 pnpm run build
 ```
 
-> 用**最新**检查点补丁(`c9-…`)即可。它是累积的:已含 C1–C8,无需逐个应用早期补丁。(早期 `c1…c8` 文件仅作为里程碑历史保留。)
+> 用**最新**检查点补丁(`c10-…`)即可。它是累积的:已含 C1–C9,无需逐个应用早期补丁。(早期 `c1…c9` 文件仅作为里程碑历史保留。)
 
 ## 3. 运行
 

@@ -1,3 +1,179 @@
+diff --git a/.agents/notes/implemented/architecture/2026-08-16-explorer-toggle-and-file-icons.md b/.agents/notes/implemented/architecture/2026-08-16-explorer-toggle-and-file-icons.md
+new file mode 100644
+index 0000000000..37f1a7c6ea
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-08-16-explorer-toggle-and-file-icons.md
+@@ -0,0 +1,38 @@
++# Agent Note: Explorer toggle and file-tree icons/highlighting
++
++Status: implemented
++
++English | [中文](2026-08-16-explorer-toggle-and-file-icons.zh.md)
++
++## Problem
++
++The file explorer (the details panel's files tab) has no always-available open affordance — a user must first open a tool call's details and switch tabs, so "review the workspace files" is a two-step discovery flow. The file tree also renders bare names with no type icon, and opened text files render as plain text because CodeMirror's `basicSetup` carries no per-language grammar.
++
++## Decision
++
++**Lift the details-tab into the shared chat store, add a session-header explorer toggle, give file rows monochrome extension icons, and detect the editor language from the filename.**
++
++- The details panel's tab choice moves from panel-private `useState` to `detailsTab` on the shared `ChatStoreState` (new `setDetailsTab` action). Every entry point now manages it: the tool-row Details pill sets `tool` before opening, the panel's close button resets to `tool`, and the panel's own tabs write it.
++- A new `ToggleExplorer` entry fills `conversation.session.header.utilities` (registered by ui-conversation, which owns the private store handle). It reads `detailsTab` and either opens the details column on the files tab (`setDetailsTab('files')` + `layout.openDetails()`) or, when already on files, closes it (`setDetailsTab('tool')` + `layout.closeDetails()`). The layout verbs arrive through the entry's inject face.
++- `ui-files` gains a `FileIcon` component: a closed set of monochrome glyphs (`folder`/`code`/`json`/`markdown`/`html`/`css`/`image`/`config`/`text`/`file`) keyed by `fileIconKind(name, type)` over a small extension table. Monochrome `currentColor` strokes keep the token discipline; colored Seti-style icons are deferred.
++- `EditorPane` gains a `filename` prop and resolves a `LanguageSupport` from a small, statically imported set of `@codemirror/lang-*` packages (`javascript`/`json`/`html`/`css`/`markdown`/`python`) keyed by extension, adding it to the view's extensions. `@codemirror/language-data` is rejected because its dynamic `import()` code-splits the single-file client bundle into a chunk the module table cannot resolve.
++
++## Alternatives considered
++
++- **Panel-private tab state** — smallest change; rejected because an external control (the header toggle) must switch the panel to the files tab, which needs shared state.
++- **A new `detailsOpen` flag in the store** — makes the toggle exactly track open/closed; rejected because it would duplicate the layout store's `details` width, and the tab alone is sufficient for the in-session toggle (the panel X resets it).
++- **Colored Seti-style icons** — the VSCode/PyCharm look; deferred because a colored set needs per-family fill tokens and a larger asset surface, while monochrome glyphs deliver the requested "logo" affordance within the token rules.
++- **`@codemirror/language-data` auto-detection** — one dependency for the full grammar set; rejected because it loads languages through dynamic `import()`, which tsdown code-splits into a relative `require("./dist-*.cjs")` chunk that the single-file client module table cannot resolve. A static `@codemirror/lang-*` map keeps the bundle unsplit at the cost of a smaller grammar set.
++
++## Consequences
++
++- **Bought**: the file explorer is one click away in every session; file rows are visually scannable by type; opened text files get real syntax highlighting without a worker pipeline (still the CodeMirror-over-Monaco stance).
++- **Cost**: `detailsTab` is persisted with the chat store, so a reload that landed on the files tab can make the first toggle click close a not-yet-open panel (the layout width itself is not persisted); the six static `@codemirror/lang-*` grammars grow the client bundle to ~1.6 MB; monochrome icons are a deliberate scope cut from the colored reference look.
++
++## Verification
++
++- `chat-store` spec pins the new `detailsTab` init and `setDetailsTab` action; `selection-survival` updates to the new store shape.
++- `toggle-explorer` spec drives the button on both tabs and asserts the open-files/close layout verbs.
++- `file-icon` spec pins the extension classification (folder collapse, known families, extension-less/trailing-dot fallback) and renders every glyph.
++- `editor-pane` spec mocks the six `@codemirror/lang-*` packages and asserts the matching language is bound, and that unknown and absent filenames bind nothing.
++- Gates: repository typecheck, `test:gui`, `verify-package-invariants`, `verify-cordis-config`, `verify-agent-note-format`, `verify-package-readme-model-experience`.
+diff --git a/.agents/notes/implemented/architecture/2026-08-16-explorer-toggle-and-file-icons.zh.md b/.agents/notes/implemented/architecture/2026-08-16-explorer-toggle-and-file-icons.zh.md
+new file mode 100644
+index 0000000000..956df39fe6
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-08-16-explorer-toggle-and-file-icons.zh.md
+@@ -0,0 +1,38 @@
++# Agent Note:文件资源管理器开关与文件树图标/高亮
++
++Status: implemented
++
++[English](2026-08-16-explorer-toggle-and-file-icons.md) | 中文
++
++## 问题
++
++文件资源管理器(details 面板的文件标签)没有随时可用的打开入口——用户必须先打开某次工具调用的详情再切标签,于是「查看工作区文件」成了两步的发现流程。文件树也只显示裸文件名,没有类型图标;打开文本文件时因为 CodeMirror 的 `basicSetup` 不含任何按语言的语法,显示为纯文本。
++
++## 决策
++
++**把 details 标签上提到共享 chat store、加一个会话头部资源管理器开关、给文件行加单色扩展名图标、按文件名探测编辑器语言。**
++
++- details 面板的标签选择从面板私有 `useState` 移到共享 `ChatStoreState` 上的 `detailsTab`(新增 `setDetailsTab` action)。所有入口现在都管理它:工具行「详情」药丸在打开前设 `tool`,面板关闭按钮重置为 `tool`,面板自己的标签按钮写它。
++- 新增 `ToggleExplorer` 填入 `conversation.session.header.utilities`(由拥有私有 store 句柄的 ui-conversation 注册)。它读取 `detailsTab`,要么打开 details 列到文件标签(`setDetailsTab('files')` + `layout.openDetails()`),要么已在文件标签时关闭(`setDetailsTab('tool')` + `layout.closeDetails()`)。布局动词经 entry 的 inject 传入。
++- `ui-files` 新增 `FileIcon` 组件:一组封闭的单色图标(`folder`/`code`/`json`/`markdown`/`html`/`css`/`image`/`config`/`text`/`file`),由 `fileIconKind(name, type)` 按一个小扩展名表分类。单色 `currentColor` 描边遵守 token 规范;彩色 Seti 风格图标留待后续。
++- `EditorPane` 新增 `filename` prop,从一小套**静态导入**的 `@codemirror/lang-*` 包(`javascript`/`json`/`html`/`css`/`markdown`/`python`)按扩展名解析出 `LanguageSupport` 加入视图扩展。`@codemirror/language-data` 被否决:它的动态 `import()` 会把单文件客户端 bundle 拆成 module table 无法解析的 chunk。
++
++## 备选方案
++
++- **面板私有标签状态**——改动最小;否决:外部控件(头部开关)需要把面板切到文件标签,必须有共享状态。
++- **store 里新增 `detailsOpen` 标记**——让开关精确跟踪开/关;否决:会与 layout store 的 `details` 宽度重复,而标签本身足以支撑会话内的开关(面板 X 会重置它)。
++- **彩色 Seti 风格图标**——VSCode/PyCharm 观感;推迟:彩色集需要按族的填充 token 和更大的资源面,而单色图标在 token 规则内已交付所要求的「logo」能力。
++- **`@codemirror/language-data` 自动探测**——用单一依赖覆盖整套语法;否决:它经动态 `import()` 加载语言,tsdown 会拆成相对 `require("./dist-*.cjs")` chunk,单文件客户端 module table 解析不了。改用手写静态 `@codemirror/lang-*` 映射,以较小的语法集换取 bundle 不拆分。
++
++## 后果
++
++- **获得**:每个会话里文件资源管理器一键可达;文件行按类型易扫读;打开文本文件获得真正的语法高亮且无需 worker 管线(仍是 CodeMirror 优于 Monaco 的立场)。
++- **代价**:`detailsTab` 随 chat store 持久化,因此落在文件标签时刷新,可能让第一次开关点击关闭尚未打开的面板(布局宽度本身不持久化);六个静态 `@codemirror/lang-*` 语法把客户端 bundle 增至约 1.6 MB;单色图标是对彩色参考观感的一次刻意裁剪。
++
++## 验证
++
++- `chat-store` 测试钉住新增 `detailsTab` 初始值与 `setDetailsTab` action;`selection-survival` 更新到新 store 形状。
++- `toggle-explorer` 测试在两个标签上驱动按钮,断言 open-files/close 的布局动词。
++- `file-icon` 测试钉住扩展名分类(目录折叠、已知族、无扩展名/尾点回退)并渲染每种图标。
++- `editor-pane` 测试 mock 六个 `@codemirror/lang-*` 包,断言匹配语言被绑定,未知、缺失文件名都不绑定。
++- 门:全仓库 typecheck、`test:gui`、`verify-package-invariants`、`verify-cordis-config`、`verify-agent-note-format`、`verify-package-readme-model-experience`。
+diff --git a/.agents/notes/implemented/architecture/2026-08-16-split-pane-view-layout.md b/.agents/notes/implemented/architecture/2026-08-16-split-pane-view-layout.md
+new file mode 100644
+index 0000000000..4d89a2b528
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-08-16-split-pane-view-layout.md
+@@ -0,0 +1,38 @@
++# Agent Note: Split-pane view layout for the conversation center column
++
++Status: implemented
++
++English | [中文](2026-08-16-split-pane-view-layout.zh.md)
++
++## Problem
++
++The center column renders exactly one conversation view at a time (the `conversation.view` tab ring), so Chat, Trajectory, and Terminal are mutually exclusive and each occupies the full column. There is no way to see two views side by side or stacked, no fullscreen toggle, and no tmux-style split.
++
++## Decision
++
++**Replace the single active-view field with a recursive pane tree in the shared chat store, rendered by a `PaneTree` component with per-pane chrome and draggable dividers.**
++
++- `ChatStoreState.view` (the one active view id) is replaced by three fields: `panes: PaneNode` (a recursive `leaf | split` tree; a split is `row` or `column` with fractional `sizes`), `focusedPaneId`, and `fullscreenPaneId`. New store actions `splitPane`/`closePane`/`setPaneView`/`setPaneSizes`/`setFocusedPane`/`toggleFullscreen`/`switchFocusedTo` wrap pure, immutable tree operations in `pane-tree.ts` (split, close-with-collapse-and-renormalize, leaf view set, split size set, first/focused leaf lookup), so the store stays one write per action.
++- `ConversationSession` renders the tree through `PaneTree` instead of one `renderSlot(..., { only: viewId })`. Each leaf renders its view via the same `conversation.view` slot (`{ only: leaf.viewId }`), and a leaf whose view id is no longer registered falls back to `chat`. The header tab ring now addresses the focused pane (`setPaneView` on its id) and highlights its view, with the same stale-id → `chat` fallback.
++- Each leaf pane has a chrome bar (view label + split right / split down / fullscreen / close). Dividers between split children are pointer-dragged to rebalance the two adjacent fractions (clamped to a 10% minimum, sum preserved).
++- Fullscreen renders only the fullscreen leaf; the same button toggles back to the grid.
++- The chat view's Inspect handoff (`inspectCall`) switches the focused pane to trajectory via `switchFocusedTo` instead of the old `setView`.
++
++## Alternatives considered
++
++- **A separate pane store** — keeps the pane layout out of the persisted chat store; rejected because the header, session body, and chat view already share the chat store handle, and persisting the layout per session is a feature (tmux-like) rather than a cost.
++- **CSS grid with fixed cells** — simpler rendering; rejected because recursive arbitrary splitting needs a tree, not a fixed cell count, and per-pane fullscreen/close collapse naturally onto tree operations.
++- **Keep the tab ring and add a fixed two-up mode** — smallest change; rejected because the user asked for full tmux-style recursive splits, which the tree model delivers uniformly.
++
++## Consequences
++
++- **Bought**: Chat/Trajectory/Terminal can be split arbitrarily (right/down), resized by dragging, focused, and taken fullscreen, with the layout persisted per session and the tab ring still driving the focused pane.
++- **Cost**: the store shape change (`view` → `panes`/`focusedPaneId`/`fullscreenPaneId`) ripples into the header, session body, and the `inspectCall` handoff; multiple panes of the same view share that view's store (two Chat panes share selection/draft); fullscreen/focus persist across reloads with the tree.
++
++## Verification
++
++- `pane-tree.spec.ts` pins the pure operations (split, close-with-collapse, size renormalization, view/size set, first/focused leaf).
++- `chat-store.spec.ts` and `selection-survival.spec.ts` pin the new store shape and the pane actions.
++- `pane-tree.client.spec.tsx` drives the renderer: leaf/split/fullscreen rendering, chrome verbs, and divider drag rebalancing.
++- `skeleton.client.spec.tsx` and `ui-trajectory/views.client.spec.tsx` update to the pane actions and the new session locale seat; the stale-view fallback is asserted via `switchFocusedTo('removed-view')`.
++- Gates: repository typecheck, `test:gui`, `verify-package-invariants`, `verify-cordis-config`, `verify-agent-note-format`.
+diff --git a/.agents/notes/implemented/architecture/2026-08-16-split-pane-view-layout.zh.md b/.agents/notes/implemented/architecture/2026-08-16-split-pane-view-layout.zh.md
+new file mode 100644
+index 0000000000..806c924680
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-08-16-split-pane-view-layout.zh.md
+@@ -0,0 +1,38 @@
++# Agent Note:会话中心列的分屏 pane 布局
++
++Status: implemented
++
++[English](2026-08-16-split-pane-view-layout.md) | 中文
++
++## 问题
++
++中心列一次只渲染一个会话视图(`conversation.view` 标签环),于是 Chat、Trajectory、Terminal 互斥且各自占满整列。无法并排或堆叠显示两个视图,也没有全屏切换,更没有 tmux 式分屏。
++
++## 决策
++
++**用共享 chat store 里的递归 pane 树替换单一活动视图字段,由 `PaneTree` 组件渲染,带每 pane 的 chrome 和可拖动分隔条。**
++
++- `ChatStoreState.view`(单一活动视图 id)被三个字段取代:`panes: PaneNode`(递归的 `leaf | split` 树;split 是 `row` 或 `column`,带分数 `sizes`)、`focusedPaneId`、`fullscreenPaneId`。新 store action `splitPane`/`closePane`/`setPaneView`/`setPaneSizes`/`setFocusedPane`/`toggleFullscreen`/`switchFocusedTo` 封装 `pane-tree.ts` 里纯不可变的树操作(分割、带折叠与重新归一化的关闭、叶子视图设置、split 尺寸设置、首个/聚焦叶子查找),使 store 每个 action 只写一次。
++- `ConversationSession` 经 `PaneTree` 渲染树,取代单个 `renderSlot(..., { only: viewId })`。每个叶子经同一 `conversation.view` 槽(`{ only: leaf.viewId }`)渲染其视图;视图 id 已不再注册的叶子回退到 `chat`。头部标签环现在作用于聚焦 pane(对其 id 调 `setPaneView`)并高亮其视图,同样的过期 id → `chat` 回退。
++- 每个叶子 pane 有 chrome 栏(视图名 + 向右分屏 / 向下分屏 / 全屏 / 关闭)。split 子节点之间的分隔条用指针拖动,重新平衡两个相邻分数(夹在 10% 下限,总和保持)。
++- 全屏只渲染该全屏叶子;同一按钮切回网格。
++- chat 视图的 Inspect 交接(`inspectCall`)经 `switchFocusedTo` 把聚焦 pane 切到 trajectory,取代旧的 `setView`。
++
++## 备选方案
++
++- **独立 pane store**——把 pane 布局移出持久化的 chat store;否决:头部、会话体、chat 视图已共享 chat store 句柄,而且按会话持久化布局是特性(tmux 式)而非代价。
++- **固定单元格的 CSS grid**——渲染更简单;否决:递归任意分割需要树而非固定单元格数,而且每 pane 的全屏/关闭折叠天然落到树操作上。
++- **保留标签环并加固定双栏模式**——改动最小;否决:用户要的是完整 tmux 式递归分割,树模型能统一交付。
++
++## 后果
++
++- **获得**:Chat/Trajectory/Terminal 可任意分割(右/下)、拖动调整、聚焦、全屏,布局按会话持久化,标签环仍驱动聚焦 pane。
++- **代价**:store 形状变化(`view` → `panes`/`focusedPaneId`/`fullscreenPaneId`)波及头部、会话体和 `inspectCall` 交接;同一视图的多个 pane 共享该视图的 store(两个 Chat pane 共享 selection/draft);全屏/聚焦随树跨刷新持久化。
++
++## 验证
++
++- `pane-tree.spec.ts` 钉住纯操作(分割、带折叠的关闭、尺寸重新归一化、视图/尺寸设置、首个/聚焦叶子)。
++- `chat-store.spec.ts` 与 `selection-survival.spec.ts` 钉住新 store 形状与 pane action。
++- `pane-tree.client.spec.tsx` 驱动渲染器:叶子/分割/全屏渲染、chrome 动词、分隔条拖动重平衡。
++- `skeleton.client.spec.tsx` 与 `ui-trajectory/views.client.spec.tsx` 更新到 pane action 与新会话 locale 座;过期视图回退经 `switchFocusedTo('removed-view')` 断言。
++- 门:全仓库 typecheck、`test:gui`、`verify-package-invariants`、`verify-cordis-config`、`verify-agent-note-format`。
 diff --git a/.agents/notes/implemented/architecture/2026-08-16-web-terminal-capability-seam.md b/.agents/notes/implemented/architecture/2026-08-16-web-terminal-capability-seam.md
 new file mode 100644
 index 0000000000..0466d6865a
@@ -920,11 +1096,318 @@ index 13df9f3da0..68614f5cd4 100644
          const { code, exports: cssExports } = transform({
            filename: fileId,
            code: source,
+diff --git a/packages/client/ui-conversation/src/client/PaneTree.module.css b/packages/client/ui-conversation/src/client/PaneTree.module.css
+new file mode 100644
+index 0000000000..41ddcb83e0
+--- /dev/null
++++ b/packages/client/ui-conversation/src/client/PaneTree.module.css
+@@ -0,0 +1,117 @@
++.root {
++  display: flex;
++  flex: 1;
++  min-width: 0;
++  min-height: 0;
++}
++
++.split {
++  display: flex;
++  flex: 1;
++  min-width: 0;
++  min-height: 0;
++}
++
++.splitRow {
++  flex-direction: row;
++}
++
++.splitColumn {
++  flex-direction: column;
++}
++
++.fragment {
++  display: flex;
++  flex: 0 0 auto;
++  min-width: 0;
++  min-height: 0;
++  overflow: hidden;
++}
++
++.pane {
++  display: flex;
++  flex: 1;
++  min-width: 0;
++  min-height: 0;
++  flex-direction: column;
++  border: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.25));
++  border-radius: 8px;
++  overflow: hidden;
++}
++
++.pane.focused {
++  border-color: var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.8));
++}
++
++.chrome {
++  display: flex;
++  flex: none;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px;
++  padding: 3px 8px;
++  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.25));
++}
++
++.viewLabel {
++  font-size: 12px;
++  line-height: 18px;
++  color: var(--dsw-alias-label-tertiary, #888);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.chromeActions {
++  display: flex;
++  flex: none;
++  gap: 2px;
++}
++
++.chromeButton {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  width: 22px;
++  height: 22px;
++  border: none;
++  border-radius: 4px;
++  background: transparent;
++  color: var(--dsw-alias-label-tertiary, #888);
++  font-size: 13px;
++  line-height: 1;
++  cursor: pointer;
++}
++
++.chromeButton:hover {
++  background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.1));
++  color: var(--dsw-alias-label-primary, #eee);
++}
++
++.view {
++  display: flex;
++  flex-direction: column;
++  flex: 1;
++  min-height: 0;
++  overflow: hidden;
++}
++
++.divider {
++  flex: 0 0 auto;
++  background: transparent;
++  z-index: 1;
++}
++
++.divider[data-direction='row'] {
++  width: 6px;
++  cursor: col-resize;
++}
++
++.divider[data-direction='column'] {
++  height: 6px;
++  cursor: row-resize;
++}
++
++.divider:hover {
++  background: var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.35));
++}
+diff --git a/packages/client/ui-conversation/src/client/PaneTree.tsx b/packages/client/ui-conversation/src/client/PaneTree.tsx
+new file mode 100644
+index 0000000000..7dec3aea47
+--- /dev/null
++++ b/packages/client/ui-conversation/src/client/PaneTree.tsx
+@@ -0,0 +1,122 @@
++/** Recursive pane-tree renderer: leaves host one view + chrome; splits lay children out with draggable dividers. */
++
++import { useRef } from 'react'
++import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
++import clsx from 'clsx'
++import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
++import type { PaneNode, PaneSplit } from './contract/panes.ts'
++import type { ViewTab } from './contract/views.ts'
++import { findLeaf } from './pane-tree.ts'
++import css from './PaneTree.module.css'
++
++/** Minimum child fraction a divider may leave (10%). */
++const MIN_FRACTION = 0.1
++
++interface PaneTreeProps {
++  root: PaneNode
++  focusedPaneId: string | null
++  fullscreenPaneId: string | null
++  tabs: readonly ViewTab[]
++  renderView: (viewId: string) => ReactNode
++  onFocus: (paneId: string) => void
++  onSplit: (paneId: string, direction: 'row' | 'column') => void
++  onClose: (paneId: string) => void
++  onFullscreen: (paneId: string) => void
++  onResize: (splitId: string, sizes: number[]) => void
++  t: TranslateNS<'conversation'>
++}
++
++/** One leaf pane: the chrome bar (focus, split, fullscreen, close) above its view. */
++function LeafPane(props: PaneTreeProps & { paneId: string; viewId: string }) {
++  const { paneId, viewId, focusedPaneId, fullscreenPaneId, tabs, renderView, onFocus, onSplit, onClose, onFullscreen, t } = props
++  return (
++    <section
++      className={clsx(css.pane, focusedPaneId === paneId && css.focused)}
++      data-pane={paneId}
++      onPointerDown={() => { onFocus(paneId) }}
++    >
++      <div className={css.chrome}>
++        <span className={css.viewLabel}>{tabs.find(tab => tab.id === viewId)?.label ?? viewId}</span>
++        <div className={css.chromeActions}>
++          <button type="button" className={css.chromeButton} aria-label={t('pane.splitRight')} title={t('pane.splitRight')} onClick={() => { onSplit(paneId, 'row') }}>⫞</button>
++          <button type="button" className={css.chromeButton} aria-label={t('pane.splitDown')} title={t('pane.splitDown')} onClick={() => { onSplit(paneId, 'column') }}>⫟</button>
++          <button type="button" className={css.chromeButton} aria-label={fullscreenPaneId === paneId ? t('pane.exitFullscreen') : t('pane.fullscreen')} title={fullscreenPaneId === paneId ? t('pane.exitFullscreen') : t('pane.fullscreen')} onClick={() => { onFullscreen(paneId) }}>⛶</button>
++          <button type="button" className={css.chromeButton} aria-label={t('pane.close')} title={t('pane.close')} onClick={() => { onClose(paneId) }}>✕</button>
++        </div>
++      </div>
++      <div className={css.view} data-pane-view="">{renderView(viewId)}</div>
++    </section>
++  )
++}
++
++/** One draggable divider between two split children (index → index+1). */
++function Divider({ split, index, onResize }: { split: PaneSplit; index: number; onResize: (sizes: number[]) => void }) {
++  const ref = useRef<HTMLDivElement>(null)
++  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
++    event.preventDefault()
++    const parent = ref.current?.parentElement
++    /* v8 ignore next -- the divider renders inside its split container. */
++    if (parent === null || parent === undefined) return
++    const horizontal = split.direction === 'row'
++    const start = horizontal ? event.clientX : event.clientY
++    const extent = horizontal ? parent.clientWidth : parent.clientHeight
++    const startSizes = [...split.sizes]
++    const move = (ev: PointerEvent): void => {
++      if (extent === 0) return
++      const delta = ((horizontal ? ev.clientX : ev.clientY) - start) / extent
++      const raw = startSizes[index]! + delta
++      const clamped = Math.max(MIN_FRACTION, Math.min(1 - MIN_FRACTION, raw))
++      const sizes = [...startSizes]
++      sizes[index] = clamped
++      sizes[index + 1] = startSizes[index]! + startSizes[index + 1]! - clamped
++      onResize(sizes)
++    }
++    const up = (): void => {
++      window.removeEventListener('pointermove', move)
++      window.removeEventListener('pointerup', up)
++    }
++    window.addEventListener('pointermove', move)
++    window.addEventListener('pointerup', up)
++  }
++  return <div ref={ref} className={css.divider} data-direction={split.direction} onPointerDown={onPointerDown} />
++}
++
++/** Render one node: a leaf, or a flex split with dividers between sized fragments. */
++function renderNode(props: PaneTreeProps, node: PaneNode): ReactNode {
++  if (node.kind === 'leaf') {
++    return <LeafPane {...props} paneId={node.paneId} viewId={node.viewId} />
++  }
++  const children: ReactNode[] = []
++  node.children.forEach((child, index) => {
++    const key = child.kind === 'leaf' ? child.paneId : child.splitId
++    children.push(
++      <div key={key} className={css.fragment} style={{ flexGrow: node.sizes[index] ?? 1 }}>
++        {renderNode(props, child)}
++      </div>,
++    )
++    if (index < node.children.length - 1) {
++      children.push(<Divider key={`divider-${key}`} split={node} index={index} onResize={sizes => props.onResize(node.splitId, sizes)} />)
++    }
++  })
++  return (
++    <div className={clsx(css.split, node.direction === 'row' ? css.splitRow : css.splitColumn)}>
++      {children}
++    </div>
++  )
++}
++
++/** Top-level pane tree (handles fullscreen by rendering only that leaf). */
++export function PaneTree(props: PaneTreeProps) {
++  const { root, fullscreenPaneId } = props
++  if (fullscreenPaneId !== null) {
++    const leaf = findLeaf(root, fullscreenPaneId)
++    if (leaf !== undefined) {
++      return (
++        <div className={css.root} data-conversation-composer-overlay="">
++          <LeafPane {...props} paneId={leaf.paneId} viewId={leaf.viewId} />
++        </div>
++      )
++    }
++  }
++  return <div className={css.root} data-conversation-composer-overlay="">{renderNode(props, root)}</div>
++}
 diff --git a/packages/client/ui-conversation/src/client/apply.ts b/packages/client/ui-conversation/src/client/apply.ts
-index f57caea9e5..25dea4ffb8 100644
+index f57caea9e5..fcf6e5d15e 100644
 --- a/packages/client/ui-conversation/src/client/apply.ts
 +++ b/packages/client/ui-conversation/src/client/apply.ts
-@@ -446,6 +446,7 @@ export function apply(ctx: Context): void {
+@@ -35,6 +35,7 @@ import { queueDockEntry } from './queue/QueueDock.tsx'
+ import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
+ import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
+ import { DetailsPanel } from './skeleton/DetailsPanel.tsx'
++import { ToggleExplorer } from './skeleton/ToggleExplorer.tsx'
+ import { en, NS, zh, type ConversationKey } from './locales.ts'
+ import { registerConversationNodes } from './conversation-nodes/register.ts'
+ import { registerChatNodeRenderers } from './chat/register-node-renderers.ts'
+@@ -238,6 +239,7 @@ export function apply(ctx: Context): void {
+   // session appears after a Workspace pick.
+   slots.register({
+     name: 'conversation.session',
++    locale: NS,
+     children: {
+       'conversation.view': { kind: 'list', scope: 'session' },
+     },
+@@ -268,6 +270,22 @@ export function apply(ctx: Context): void {
+     }),
+   }, ConversationSessionHeader)
+ 
++  // The session-header explorer toggle: opens the details panel on the files
++  // tab (or closes it), sharing the details-tab state with the panel through
++  // the same chat store. Registered here because the store handle is
++  // ui-conversation-private.
++  slots.register({
++    name: 'conversation.session.header.utilities',
++    id: 'toggle-explorer',
++    order: 0,
++    locale: NS,
++    store: chatStore,
++    inject: () => ({
++      openDetails: () => { layout.openDetails() },
++      closeDetails: () => { layout.closeDetails() },
++    }),
++  }, ToggleExplorer)
++
+   // The default composer body: its own single slot inside the composer
+   // chain's fallback. Public machine surface arrives via the
+   // provide channel above; the keyboard command face and the stop/retry
+@@ -389,6 +407,7 @@ export function apply(ctx: Context): void {
+       return {
+         openDetails: (target) => {
+           actions.select(target)
++          actions.setDetailsTab('tool')
+           layout.openDetails()
+         },
+         fileMentions: owner => ctx.get('chatFileMentions')?.forClosing(owner),
+@@ -405,7 +424,7 @@ export function apply(ctx: Context): void {
+         // the first view, and the untouched inspect target stays inert.
+         inspectCall: (callId) => {
+           actions.setInspect({ callId })
+-          actions.setView('trajectory')
++          actions.switchFocusedTo('trajectory')
+         },
+         chatScroll: {
+           save: (position) => {
+@@ -446,6 +465,7 @@ export function apply(ctx: Context): void {
      locale: NS,
      children: {
        'conversation.details.tool': { kind: 'single', scope: 'session' },
@@ -984,11 +1467,48 @@ index f3343a183f..d18bf811de 100644
    if (routedNode === undefined || owner === null) return null
    // Runtime dispatch owns the correlation: every Node's discriminant is the
    // keyed-slot entry passed alongside that same Node. TypeScript does not
+diff --git a/packages/client/ui-conversation/src/client/chat/ChatView.module.css b/packages/client/ui-conversation/src/client/chat/ChatView.module.css
+index d16608c856..5bbb810801 100644
+--- a/packages/client/ui-conversation/src/client/chat/ChatView.module.css
++++ b/packages/client/ui-conversation/src/client/chat/ChatView.module.css
+@@ -32,6 +32,21 @@
+   min-height: auto;
+ }
+ 
++/* Inside a split pane the view owns its scroller again (the outer column is
++   a fixed-height overlay host, not the flow scrollport). */
++:global([data-pane-view]) .root {
++  flex: 1 1 auto;
++  min-height: 0;
++}
++
++:global([data-pane-view]) .scroll {
++  overflow-y: auto;
++  flex: 1 1 auto;
++  min-height: 0;
++  /* Clear the floating composer overlay the same way the trajectory ledger does. */
++  padding-bottom: calc(var(--dsh-composer-height, 152px) + 16px);
++}
++
+ /* Message column: shared chat width (ConversationRoot --dsh-chat-content-width),
+    centered on the same axis as the input box (which caps at chat + 16px); the
+    scroller itself stays full-bleed. */
 diff --git a/packages/client/ui-conversation/src/client/chat/ChatView.tsx b/packages/client/ui-conversation/src/client/chat/ChatView.tsx
-index 58e63b312f..e661159dd7 100644
+index 58e63b312f..ec4f31835b 100644
 --- a/packages/client/ui-conversation/src/client/chat/ChatView.tsx
 +++ b/packages/client/ui-conversation/src/client/chat/ChatView.tsx
-@@ -144,7 +144,7 @@ function TurnStatus({ startTime, t }: {
+@@ -23,8 +23,9 @@ import css from './ChatView.module.css'
+ 
+ const FOLLOW_THRESHOLD = 24
+ 
+-/** Active column host when present; otherwise the view-local scroller. */
++/** Active column host when present; a pane (split view) scrolls its own local scroller. */
+ function scrollerOf(from: HTMLElement): HTMLElement {
++  if (from.closest('[data-pane-view]') !== null) return from
+   return (from.closest('[data-conversation-scroll]')) ?? from
+ }
+ 
+@@ -144,7 +145,7 @@ function TurnStatus({ startTime, t }: {
   * ordered business Node crosses the keyed renderer seat.
   */
  export function ChatView({
@@ -997,7 +1517,7 @@ index 58e63b312f..e661159dd7 100644
    fileMentions, t,
  }: ChatViewSlotProps) {
    const order = useSession(s => s.chat.order)
-@@ -388,6 +388,7 @@ export function ChatView({
+@@ -388,6 +389,7 @@ export function ChatView({
                cwd={cwd}
                openFile={openFile}
                inspectCall={inspectCall}
@@ -1005,8 +1525,39 @@ index 58e63b312f..e661159dd7 100644
                forkAt={forkAt}
                loadImage={loadImage}
                fileMentions={fileMentions}
+diff --git a/packages/client/ui-conversation/src/client/contract/panes.ts b/packages/client/ui-conversation/src/client/contract/panes.ts
+new file mode 100644
+index 0000000000..6542aac6fa
+--- /dev/null
++++ b/packages/client/ui-conversation/src/client/contract/panes.ts
+@@ -0,0 +1,25 @@
++/** Pane-layout contracts for the tmux-style split view. */
++
++/** A leaf pane hosting one conversation view (chat / trajectory / terminal). */
++export interface PaneLeaf {
++  kind: 'leaf'
++  /** Stable identity across splits/closes (minted at split time). */
++  paneId: string
++  /** The `conversation.view` entry id this pane renders. */
++  viewId: string
++}
++
++/** A split container: children laid out side-by-side (row) or stacked (column). */
++export interface PaneSplit {
++  kind: 'split'
++  /** Stable identity for size drags (minted at split time). */
++  splitId: string
++  /** Row = side-by-side (split right); column = stacked (split down). */
++  direction: 'row' | 'column'
++  children: PaneNode[]
++  /** Per-child fractional size; length equals children and sums to 1. */
++  sizes: number[]
++}
++
++/** One node of the pane tree: a leaf or a recursive split. */
++export type PaneNode = PaneLeaf | PaneSplit
 diff --git a/packages/client/ui-conversation/src/client/contract/slots.ts b/packages/client/ui-conversation/src/client/contract/slots.ts
-index 21259146a7..8cf02e36c2 100644
+index 21259146a7..077c710351 100644
 --- a/packages/client/ui-conversation/src/client/contract/slots.ts
 +++ b/packages/client/ui-conversation/src/client/contract/slots.ts
 @@ -122,6 +122,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -1033,7 +1584,22 @@ index 21259146a7..8cf02e36c2 100644
    forkAt: (seq: number) => void
    /** Resolve a session-authorized historical image for inline display. */
    loadImage: (attachment: ImageAttachmentRef) => Promise<string>
-@@ -721,8 +731,8 @@ export interface DetailsInjected {
+@@ -579,12 +589,13 @@ export type ConversationSlotProps =
+   & InjectFace<ConversationInjected>
+   & PropsLocale<'conversation'>
+ 
+-/** Full strict-session body props: per-session store, view ring, and draft mirror. */
++/** Full strict-session body props: per-session store, view ring, draft mirror, and locale. */
+ export type ConversationSessionSlotProps =
+   PropsRuntime<'conversation.session'>
+   & PropsRenderSlots<'conversation.view'>
+   & PropsStore<ChatStore>
+   & ConversationSessionInjected
++  & PropsLocale<'conversation'>
+ 
+ /** Full strict-session header props: shared store, tabs/actions render shares, navigation, and locale. */
+ export type ConversationSessionHeaderSlotProps =
+@@ -721,8 +732,8 @@ export interface DetailsInjected {
    closeDetails: () => void
  }
  
@@ -1044,32 +1610,327 @@ index 21259146a7..8cf02e36c2 100644
    & PropsStore<ChatStore> & DetailsInjected & PropsLocale<'conversation'>
  
  /** Owner share common to the hero / New-Session Workspace pickers. */
+diff --git a/packages/client/ui-conversation/src/client/contract/views.ts b/packages/client/ui-conversation/src/client/contract/views.ts
+index 1680e0322d..8c6cf10dad 100644
+--- a/packages/client/ui-conversation/src/client/contract/views.ts
++++ b/packages/client/ui-conversation/src/client/contract/views.ts
+@@ -1,8 +1,13 @@
+ /** Shared conversation view, selection, and store-state contracts. */
+ 
++import type { PaneNode } from './panes.ts'
++
+ /** Tool call identity as carried on the wire (branded upstream in connection). */
+ export type CallId = string
+ 
++/** The details panel's two tabs; shared so an external control can switch it. */
++export type DetailsTab = 'tool' | 'files'
++
+ /** Selection target for the details linkage channel (toolcall is the step special case). */
+ export interface SelectionTarget { turnSeq: number; stepSeq?: number; callId?: CallId; toolName?: string }
+ 
+@@ -21,8 +26,18 @@ export interface ChatStoreState {
+   selection: SelectionTarget | null
+   /** Composer draft (persisted; survives session switches and reloads). */
+   draft: string
+-  /** Active conversation view id ('conversation.view' entry id); null falls back to Chat. */
+-  view: string | null
++  /** The pane tree: one chat leaf by default, splittable into a row/column grid. */
++  panes: PaneNode
++  /** Focused leaf pane id (the split/view actions address); null = root leaf. */
++  focusedPaneId: string | null
++  /** Fullscreen leaf pane id; null = the whole grid shows. */
++  fullscreenPaneId: string | null
++  /**
++   * The details panel's active tab. Shared so the explorer toggle in the
++   * session header can open the panel on the files tab and the panel's own
++   * tabs/tool-details pill can switch it back.
++   */
++  detailsTab: DetailsTab
+   /**
+    * One-shot inspect handoff: chat writes the call to reveal, the trajectory
+    * view consumes it and acknowledges by clearing. Read with `?? null` —
 diff --git a/packages/client/ui-conversation/src/client/locales.ts b/packages/client/ui-conversation/src/client/locales.ts
-index c9b6f658ca..ae7ecf6729 100644
+index c9b6f658ca..adf4635bf5 100644
 --- a/packages/client/ui-conversation/src/client/locales.ts
 +++ b/packages/client/ui-conversation/src/client/locales.ts
-@@ -76,6 +76,10 @@ export const zh = {
+@@ -76,6 +76,16 @@ export const zh = {
    'session.hierarchy': '会话层级',
    'details.title': '详情',
    'details.close': '关闭详情',
 +  'details.tab.tool': '工具',
 +  'details.tab.files': '文件',
++  'details.toggleExplorer': '切换文件资源管理器',
 +  'details.filesUnavailable': '文件面板未安装',
++  'pane.splitRight': '向右分屏',
++  'pane.splitDown': '向下分屏',
++  'pane.fullscreen': '全屏',
++  'pane.exitFullscreen': '退出全屏',
++  'pane.close': '关闭窗格',
 +  'tool.details': '详情',
    'details.empty': '点击消息流中的工具行查看详情',
    'details.notInWindow': '该调用不在当前窗口内',
    'details.input': '输入',
-@@ -245,6 +249,10 @@ export const en = {
+@@ -245,6 +255,16 @@ export const en = {
    'session.hierarchy': 'Session hierarchy',
    'details.title': 'Details',
    'details.close': 'Close details',
 +  'details.tab.tool': 'Tools',
 +  'details.tab.files': 'Files',
++  'details.toggleExplorer': 'Toggle file explorer',
 +  'details.filesUnavailable': 'Files panel is not installed',
++  'pane.splitRight': 'Split right',
++  'pane.splitDown': 'Split down',
++  'pane.fullscreen': 'Fullscreen',
++  'pane.exitFullscreen': 'Exit fullscreen',
++  'pane.close': 'Close pane',
 +  'tool.details': 'Details',
    'details.empty': 'Click a tool row in the message flow to view its details',
    'details.notInWindow': 'This call is outside the current window',
    'details.input': 'Input',
+diff --git a/packages/client/ui-conversation/src/client/pane-tree.ts b/packages/client/ui-conversation/src/client/pane-tree.ts
+new file mode 100644
+index 0000000000..e63e1f8942
+--- /dev/null
++++ b/packages/client/ui-conversation/src/client/pane-tree.ts
+@@ -0,0 +1,117 @@
++/**
++ * Pure pane-tree operations: every operation returns a NEW tree, so the store
++ * actions stay one immutable write each. Leaf/split identities are minted by
++ * the caller (the store), never here.
++ */
++
++import type { PaneLeaf, PaneNode, PaneSplit } from './contract/panes.ts'
++
++/** The initial single-pane layout (chat). */
++export function initialPane(): PaneNode {
++  return { kind: 'leaf', paneId: 'pane-1', viewId: 'chat' }
++}
++
++/** Find a leaf by pane id (depth-first). */
++export function findLeaf(root: PaneNode, paneId: string): PaneLeaf | undefined {
++  if (root.kind === 'leaf') return root.paneId === paneId ? root : undefined
++  for (const child of root.children) {
++    const found = findLeaf(child, paneId)
++    if (found !== undefined) return found
++  }
++  return undefined
++}
++
++/** The first (top-left) leaf, used as the fallback focus target. */
++export function firstLeaf(root: PaneNode): PaneLeaf | undefined {
++  if (root.kind === 'leaf') return root
++  for (const child of root.children) {
++    const leaf = firstLeaf(child)
++    if (leaf !== undefined) return leaf
++  }
++  return undefined
++}
++
++/** The focused leaf, falling back to the first leaf when the id is stale/absent. */
++export function focusedLeaf(root: PaneNode, focusedId: string | null): PaneLeaf | undefined {
++  const byId = focusedId === null ? undefined : findLeaf(root, focusedId)
++  return byId ?? firstLeaf(root)
++}
++
++/** Scale an arbitrary non-empty fraction list to sum to 1. */
++function normalize(sizes: number[]): number[] {
++  const total = sizes.reduce((sum, value) => sum + value, 0)
++  if (total <= 0) return sizes.map(() => 1 / sizes.length)
++  return sizes.map(value => value / total)
++}
++
++/** Replace the leaf `paneId` with a two-child split (the leaf plus a fresh one). */
++export function splitPane(
++  root: PaneNode,
++  paneId: string,
++  newPaneId: string,
++  splitId: string,
++  direction: 'row' | 'column',
++  newViewId: string,
++): PaneNode {
++  if (root.kind === 'leaf') {
++    if (root.paneId !== paneId) return root
++    return {
++      kind: 'split',
++      splitId,
++      direction,
++      children: [root, { kind: 'leaf', paneId: newPaneId, viewId: newViewId }],
++      sizes: [0.5, 0.5],
++    }
++  }
++  return { ...root, children: root.children.map(child => splitPane(child, paneId, newPaneId, splitId, direction, newViewId)) }
++}
++
++/** Remove the leaf `paneId`, collapsing a split left with one child into it. */
++export function closePane(root: PaneNode, paneId: string): PaneNode {
++  if (root.kind === 'leaf') return root
++  const directIndex = root.children.findIndex(child => child.kind === 'leaf' && child.paneId === paneId)
++  if (directIndex >= 0) {
++    const remaining = root.children.filter((_, index) => index !== directIndex)
++    if (remaining.length === 1) return remaining[0] as PaneNode
++    const keptSizes = root.sizes.filter((_, index) => index !== directIndex)
++    return { ...root, children: remaining, sizes: normalize(keptSizes) }
++  }
++  return {
++    ...root,
++    children: root.children.map(child => child.kind === 'split' ? closePane(child, paneId) : child),
++  }
++}
++
++/** Set a leaf's view id. */
++export function setLeafView(root: PaneNode, paneId: string, viewId: string): PaneNode {
++  if (root.kind === 'leaf') {
++    return root.paneId === paneId ? { ...root, viewId } : root
++  }
++  return { ...root, children: root.children.map(child => setLeafView(child, paneId, viewId)) }
++}
++
++/** Set a split's child fractions (caller supplies the full, normalized list). */
++export function setSplitSizes(root: PaneNode, splitId: string, sizes: number[]): PaneNode {
++  if (root.kind === 'leaf') return root
++  if (root.splitId === splitId) return { ...root, sizes: normalize(sizes) }
++  return { ...root, children: root.children.map(child => setSplitSizes(child, splitId, sizes)) }
++}
++
++/** True when the tree has only the one leaf (cannot be closed). */
++export function isSingle(root: PaneNode): boolean {
++  return root.kind === 'leaf'
++}
++
++/** Locate the split node that directly contains `childId` (leaf or split), if any. */
++export function parentSplit(root: PaneNode, childId: string): PaneSplit | undefined {
++  if (root.kind === 'leaf') return undefined
++  if (root.children.some(child => (child.kind === 'leaf' ? child.paneId : child.splitId) === childId)) {
++    return root
++  }
++  for (const child of root.children) {
++    if (child.kind === 'leaf') continue
++    const found = parentSplit(child, childId)
++    if (found !== undefined) return found
++  }
++  return undefined
++}
+diff --git a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
+index d576aa175d..f9635d7620 100644
+--- a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
+@@ -6,7 +6,8 @@ import type { SessionId, SessionListState, SessionSummary } from '@deepseek-ai/d
+ import type {
+   ConversationSessionHeaderSlotProps, ConversationSessionSlotProps,
+ } from '../contract/slots.ts'
+-import type { ViewTab } from '../contract/views.ts'
++import { focusedLeaf } from '../pane-tree.ts'
++import { PaneTree } from '../PaneTree.tsx'
+ import css from './ConversationRoot.module.css'
+ 
+ /** Full props composed from the strict session body contract. */
+@@ -20,15 +21,6 @@ interface Breadcrumb {
+   readonly displayTitle: string
+ }
+ 
+-const DEFAULT_VIEW_ID = 'chat'
+-
+-/** Resolve by id and keep stale persisted selections on the stable Chat fallback. */
+-function resolveActiveView(tabs: readonly ViewTab[], selectedId: string | null): ViewTab | undefined {
+-  const requestedId = selectedId ?? DEFAULT_VIEW_ID
+-  return tabs.find(view => view.id === requestedId)
+-    ?? tabs.find(view => view.id === DEFAULT_VIEW_ID)
+-}
+-
+ function deriveAncestry(list: SessionListState, id: SessionId): readonly Breadcrumb[] {
+   const chain: Breadcrumb[] = []
+   const seen = new Set<SessionId>()
+@@ -55,6 +47,8 @@ function equalBreadcrumbs(left: readonly Breadcrumb[], right: readonly Breadcrum
+ 
+ /**
+  * Renders Session header chrome above the resident conversation scrollport.
++ * The tab ring now addresses the focused pane: clicking a tab switches that
++ * pane's view rather than replacing one global view.
+  * @param props - Strict Session store, view ledger, navigation, render, and locale shares.
+  * @returns the hidden blank-session header or visible title and tabs.
+  */
+@@ -64,8 +58,10 @@ export function ConversationSessionHeader({
+ }: ConversationSessionHeaderProps) {
+   useSyncExternalStore(views.subscribe, views.version)
+   const tabs = views.list()
+-  const selectedId = useStore(s => s.view)
+-  const active = resolveActiveView(tabs, selectedId)
++  const focusedViewId = useStore(s => focusedLeaf(s.panes, s.focusedPaneId)?.viewId ?? null)
++  // A stale persisted view id (composed out) falls back to the stable Chat tab.
++  const activeViewId = focusedViewId !== null && tabs.some(tab => tab.id === focusedViewId) ? focusedViewId : 'chat'
++  const targetPaneId = useStore(s => focusedLeaf(s.panes, s.focusedPaneId)?.paneId ?? null)
+   const ancestry = useSessions(s => deriveAncestry(s, sessionId), equalBreadcrumbs)
+   const composerPhase = useSession(s => s.composerPhase)
+   const blank = useSession(s => s.blank)
+@@ -114,9 +110,11 @@ export function ConversationSessionHeader({
+                   key={viewTab.id}
+                   type="button"
+                   role="tab"
+-                  aria-selected={viewTab.id === active?.id}
+-                  className={clsx(css.tab, viewTab.id === active?.id && css.tabActive)}
+-                  onClick={() => { actions.setView(viewTab.id) }}
++                  aria-selected={viewTab.id === activeViewId}
++                  className={clsx(css.tab, viewTab.id === activeViewId && css.tabActive)}
++                  onClick={() => {
++                    if (targetPaneId !== null) actions.setPaneView(targetPaneId, viewTab.id)
++                  }}
+                 >
+                   {viewTab.label}
+                 </button>
+@@ -130,19 +128,20 @@ export function ConversationSessionHeader({
+ }
+ 
+ /**
+- * Renders the active Session view inside the resident scrollport and keeps
+- * the input draft mirrored while blank Hero chrome is visible.
++ * Renders the active Session view area as a recursive pane tree (each leaf a
++ * conversation view, splittable with draggable dividers and fullscreen).
+  * @param props - Strict Session input/store, view ledger, and render shares.
+- * @returns the active view area, or null while the Session remains blank.
++ * @returns the pane grid, or null while the Session remains blank.
+  */
+ export function ConversationSession({
+   sessionId, useSession, useInput, inputActions, useStore, actions,
+-  renderSlot, views, bindDraftMirror, releaseSessionImages,
++  renderSlot, views, bindDraftMirror, releaseSessionImages, t,
+ }: ConversationSessionProps) {
+   useSyncExternalStore(views.subscribe, views.version)
+   const tabs = views.list()
+-  const selectedId = useStore(s => s.view)
+-  const active = resolveActiveView(tabs, selectedId)
++  const panes = useStore(s => s.panes)
++  const focusedPaneId = useStore(s => s.focusedPaneId)
++  const fullscreenPaneId = useStore(s => s.fullscreenPaneId)
+   const composerPhase = useSession(s => s.composerPhase)
+   const blank = useSession(s => s.blank)
+   const inputState = useInput(s => s)
+@@ -165,10 +164,22 @@ export function ConversationSession({
+   if (blank && composerPhase === 'blank') return null
+   return (
+     <div className={css.viewArea}>
+-      {active !== undefined && renderSlot('conversation.view', {
+-        inspect,
+-        onInspectDone: () => { actions.setInspect(null) },
+-      }, { only: active.id })}
++      <PaneTree
++        root={panes}
++        focusedPaneId={focusedPaneId}
++        fullscreenPaneId={fullscreenPaneId}
++        tabs={tabs}
++        renderView={viewId => renderSlot('conversation.view', {
++          inspect,
++          onInspectDone: () => { actions.setInspect(null) },
++        }, { only: tabs.some(tab => tab.id === viewId) ? viewId : 'chat' })}
++        onFocus={paneId => { actions.setFocusedPane(paneId) }}
++        onSplit={(paneId, direction) => { actions.splitPane(paneId, direction) }}
++        onClose={paneId => { actions.closePane(paneId) }}
++        onFullscreen={paneId => { actions.toggleFullscreen(paneId) }}
++        onResize={(splitId, sizes) => { actions.setPaneSizes(splitId, sizes) }}
++        t={t}
++      />
+     </div>
+   )
+ }
 diff --git a/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.module.css b/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.module.css
 index cc5d732e45..d87c9f8c89 100644
 --- a/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.module.css
@@ -1127,10 +1988,10 @@ index cc5d732e45..d87c9f8c89 100644
    flex: 1;
    min-height: 0;
 diff --git a/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.tsx b/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.tsx
-index 8d11e3c5ea..84975030ea 100644
+index 8d11e3c5ea..f6c18bba06 100644
 --- a/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.tsx
 +++ b/packages/client/ui-conversation/src/client/skeleton/DetailsPanel.tsx
-@@ -1,12 +1,11 @@
+@@ -1,10 +1,9 @@
 -// DetailsPanel: close button + the selected call's args and
 -// result — args as JSON, the result raw except for a terminal-card call, whose
 -// Output section is the command's terminal card. Reads the
@@ -1145,22 +2006,21 @@ index 8d11e3c5ea..84975030ea 100644
 +// panel reads — the cross-registration share the store seat exists for) and
 +// derives the call material from the session snapshot — no data of its own.
  
--import { Fragment } from 'react'
-+import { Fragment, useState } from 'react'
+ import { Fragment } from 'react'
  import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
- import { shallowEqual } from '@deepseek-ai/dsh-client-runtime/client'
- import type { ConversationSnapshot, RunningToolCall, ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
-@@ -64,6 +63,9 @@ function rawResultText(block: ToolCallBlock): string {
+@@ -63,7 +62,10 @@ function rawResultText(block: ToolCallBlock): string {
+   return parts.join('\n')
  }
  
- export function DetailsPanel({ useSession, useSessions, sessionId, useStore, renderSlot, closeDetails, t }: DetailsPanelProps) {
-+  // Tab choice is panel-private viewing state: the details panel closes on
-+  // session switch, so a reset-to-tool default is the accepted behavior.
-+  const [tab, setTab] = useState<'tool' | 'files'>('tool')
+-export function DetailsPanel({ useSession, useSessions, sessionId, useStore, renderSlot, closeDetails, t }: DetailsPanelProps) {
++export function DetailsPanel({ useSession, useSessions, sessionId, useStore, actions, renderSlot, closeDetails, t }: DetailsPanelProps) {
++  // Tab choice is shared store state: the session-header explorer toggle
++  // switches the panel to the files tab, so it cannot stay panel-private.
++  const tab = useStore(s => s.detailsTab)
    const selection = useStore(s => s.selection)
    // Session workspace root: an omitted or relative terminal cwd resolves
    // against it, which the pure presenter cannot see.
-@@ -79,7 +81,7 @@ export function DetailsPanel({ useSession, useSessions, sessionId, useStore, ren
+@@ -79,51 +81,80 @@ export function DetailsPanel({ useSession, useSessions, sessionId, useStore, ren
      <div className={css.root}>
        <div className={css.header}>
          <div className={css.title}>
@@ -1169,7 +2029,14 @@ index 8d11e3c5ea..84975030ea 100644
          </div>
          <button
            type="button" className={css.close} aria-label={t('details.close')}
-@@ -90,40 +92,66 @@ export function DetailsPanel({ useSession, useSessions, sessionId, useStore, ren
+-          onClick={() => { closeDetails() }}
++          onClick={() => {
++            actions.setDetailsTab('tool')
++            closeDetails()
++          }}
+         >
+           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
            </svg>
          </button>
        </div>
@@ -1210,14 +2077,14 @@ index 8d11e3c5ea..84975030ea 100644
 +        <button
 +          type="button" role="tab" aria-selected={tab === 'tool'}
 +          className={css.tab} data-active={tab === 'tool' || undefined}
-+          onClick={() => { setTab('tool') }}
++          onClick={() => { actions.setDetailsTab('tool') }}
 +        >
 +          {t('details.tab.tool')}
 +        </button>
 +        <button
 +          type="button" role="tab" aria-selected={tab === 'files'}
 +          className={css.tab} data-active={tab === 'files' || undefined}
-+          onClick={() => { setTab('files') }}
++          onClick={() => { actions.setDetailsTab('files') }}
 +        >
 +          {t('details.tab.files')}
 +        </button>
@@ -1269,6 +2136,556 @@ index 8d11e3c5ea..84975030ea 100644
      </div>
    )
  }
+diff --git a/packages/client/ui-conversation/src/client/skeleton/ToggleExplorer.module.css b/packages/client/ui-conversation/src/client/skeleton/ToggleExplorer.module.css
+new file mode 100644
+index 0000000000..f60efb4b2f
+--- /dev/null
++++ b/packages/client/ui-conversation/src/client/skeleton/ToggleExplorer.module.css
+@@ -0,0 +1,20 @@
++.toggle {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  padding: 4px;
++  border: none;
++  border-radius: 6px;
++  background: transparent;
++  color: var(--dsw-fg-muted, #888);
++  cursor: pointer;
++}
++
++.toggle:hover {
++  color: inherit;
++  background: var(--dsw-bg-hover, rgba(127, 127, 127, 0.1));
++}
++
++.active {
++  color: inherit;
++}
+diff --git a/packages/client/ui-conversation/src/client/skeleton/ToggleExplorer.tsx b/packages/client/ui-conversation/src/client/skeleton/ToggleExplorer.tsx
+new file mode 100644
+index 0000000000..3d3b2d1a97
+--- /dev/null
++++ b/packages/client/ui-conversation/src/client/skeleton/ToggleExplorer.tsx
+@@ -0,0 +1,50 @@
++/** Session-header explorer toggle: opens the details panel on the files tab, or closes it when already there. */
++
++import clsx from 'clsx'
++import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
++import type { ChatStore } from '../contract/slots.ts'
++import css from './ToggleExplorer.module.css'
++
++/** Full props: the header-utilities runtime seats, the shared chat store, the layout verbs, and the locale seat. */
++export type ToggleExplorerProps =
++  PropsRuntime<'conversation.session.header.utilities'>
++  & PropsStore<ChatStore>
++  & { openDetails: () => void; closeDetails: () => void }
++  & PropsLocale<'conversation'>
++
++/**
++ * One always-visible header control that opens the file explorer: switching
++ * the details panel to its files tab and opening the column, or closing the
++ * column when it already shows files. The active-tab fact lives in the shared
++ * chat store, so the panel and this control agree on what is showing.
++ * @param props - store/runtime/layout/locale shares.
++ */
++export function ToggleExplorer({ useStore, actions, openDetails, closeDetails, t }: ToggleExplorerProps) {
++  const detailsTab = useStore(s => s.detailsTab)
++  const active = detailsTab === 'files'
++  return (
++    <button
++      type="button"
++      className={clsx(css.toggle, active && css.active)}
++      aria-label={t('details.toggleExplorer')}
++      aria-pressed={active}
++      title={t('details.toggleExplorer')}
++      onClick={() => {
++        if (active) {
++          actions.setDetailsTab('tool')
++          closeDetails()
++        } else {
++          actions.setDetailsTab('files')
++          openDetails()
++        }
++      }}
++    >
++      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden>
++        <path
++          d="M1.5 3.5h4l1.5 1.5h7.5v7.5a1 1 0 0 1-1 1.5h-11a1 1 0 0 1-1-1.5z"
++          fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"
++        />
++      </svg>
++    </button>
++  )
++}
+diff --git a/packages/client/ui-conversation/src/client/stores.ts b/packages/client/ui-conversation/src/client/stores.ts
+index 5a4913f0fa..f7901cd9a1 100644
+--- a/packages/client/ui-conversation/src/client/stores.ts
++++ b/packages/client/ui-conversation/src/client/stores.ts
+@@ -3,16 +3,39 @@
+  * The plugin creates its handle at apply time so identity follows the fiber.
+  */
+ import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+-import type { CallId, ChatStoreState, SelectionTarget } from './contract/views.ts'
++import type { CallId, ChatStoreState, DetailsTab, SelectionTarget } from './contract/views.ts'
++import { closePane, focusedLeaf, initialPane, isSingle, setLeafView, setSplitSizes, splitPane } from './pane-tree.ts'
++
++/** Mint a transient pane/split identity (non-persisted UI ids; randomness avoids persisted collisions). */
++function mintId(prefix: string): string {
++  return `${prefix}-${Math.random().toString(36).slice(2, 8)}`
++}
+ 
+ /** Declared action shape used to give the exported factory a stable return type. */
+ type ChatActions = {
+   select: (draft: ChatStoreState, target: SelectionTarget | null) => void
+   setDraft: (draft: ChatStoreState, text: string) => void
+-  setView: (draft: ChatStoreState, view: string) => void
+   setInspect: (draft: ChatStoreState, target: { callId: CallId } | null) => void
++  setDetailsTab: (draft: ChatStoreState, tab: DetailsTab) => void
++  /** Split a leaf pane right (row) or down (column), focusing the fresh pane. */
++  splitPane: (draft: ChatStoreState, paneId: string, direction: 'row' | 'column') => void
++  /** Close a leaf pane (the last pane cannot be closed). */
++  closePane: (draft: ChatStoreState, paneId: string) => void
++  /** Switch one leaf pane to another conversation view. */
++  setPaneView: (draft: ChatStoreState, paneId: string, viewId: string) => void
++  /** Switch the focused pane (fallback: first) to another view. */
++  switchFocusedTo: (draft: ChatStoreState, viewId: string) => void
++  /** Update a split's child fractions (drag). */
++  setPaneSizes: (draft: ChatStoreState, splitId: string, sizes: number[]) => void
++  /** Move focus to one leaf pane. */
++  setFocusedPane: (draft: ChatStoreState, paneId: string) => void
++  /** Toggle one leaf pane into/out of fullscreen. */
++  toggleFullscreen: (draft: ChatStoreState, paneId: string) => void
+ }
+ 
++/** The view a fresh split pane starts on (the stable Chat view). */
++const DEFAULT_VIEW = 'chat'
++
+ /**
+  * Declares the per-session chat state and write surface.
+  * @returns the store handle.
+@@ -22,13 +45,43 @@ export function createChatStore(): EngineStoreHandle<ChatStoreState, ChatActions
+     // Anchored to the contract shape: consumers read the store through
+     // PropsStore<ChatStore>'s SnapshotSelectorHook<ChatStoreState>, so init
+     // and the contract cannot drift.
+-    init: (): ChatStoreState => ({ selection: null, draft: '', view: null, inspect: null }),
+-    persist: 'dsh.conversation.chat',
++    init: (): ChatStoreState => ({
++      selection: null,
++      draft: '',
++      panes: initialPane(),
++      focusedPaneId: null,
++      fullscreenPaneId: null,
++      detailsTab: 'tool',
++      inspect: null,
++    }),
++    // v2: the split-pane change replaced `view` with `panes`/`focusedPaneId`/
++    // `fullscreenPaneId`; a v1 snapshot rehydrates without those fields and
++    // crashes the pane tree, so the incompatible shape gets a fresh key.
++    persist: 'dsh.conversation.chat.v2',
+     actions: {
+       select: (d, target: SelectionTarget | null) => { d.selection = target },
+       setDraft: (d, text: string) => { d.draft = text },
+-      setView: (d, view: string) => { d.view = view },
+       setInspect: (d, target: { callId: CallId } | null) => { d.inspect = target },
++      setDetailsTab: (d, tab: DetailsTab) => { d.detailsTab = tab },
++      splitPane: (d, paneId, direction) => {
++        const newPaneId = mintId('pane')
++        d.panes = splitPane(d.panes, paneId, newPaneId, mintId('split'), direction, DEFAULT_VIEW)
++        d.focusedPaneId = newPaneId
++      },
++      closePane: (d, paneId) => {
++        if (isSingle(d.panes)) return
++        d.panes = closePane(d.panes, paneId)
++        if (d.focusedPaneId === paneId) d.focusedPaneId = null
++        if (d.fullscreenPaneId === paneId) d.fullscreenPaneId = null
++      },
++      setPaneView: (d, paneId, viewId) => { d.panes = setLeafView(d.panes, paneId, viewId) },
++      switchFocusedTo: (d, viewId) => {
++        const leaf = focusedLeaf(d.panes, d.focusedPaneId)
++        if (leaf !== undefined) d.panes = setLeafView(d.panes, leaf.paneId, viewId)
++      },
++      setPaneSizes: (d, splitId, sizes) => { d.panes = setSplitSizes(d.panes, splitId, sizes) },
++      setFocusedPane: (d, paneId) => { d.focusedPaneId = paneId },
++      toggleFullscreen: (d, paneId) => { d.fullscreenPaneId = d.fullscreenPaneId === paneId ? null : paneId },
+     },
+   })
+ }
+diff --git a/packages/client/ui-conversation/tests/chat-store.client.spec.ts b/packages/client/ui-conversation/tests/chat-store.client.spec.ts
+index 79bdd6ecaa..7738f2fad9 100644
+--- a/packages/client/ui-conversation/tests/chat-store.client.spec.ts
++++ b/packages/client/ui-conversation/tests/chat-store.client.spec.ts
+@@ -3,16 +3,24 @@
+ import { beforeEach, describe, expect, it } from 'vitest'
+ import { createChatStore } from '../src/client/stores.ts'
+ 
+-const KEY = 'dsh.conversation.chat'
++const KEY = 'dsh.conversation.chat.v2'
+ 
+ beforeEach(() => {
+   localStorage.clear()
+ })
+ 
+ describe('createChatStore', () => {
+-  it('init shape: empty selection/draft/view', () => {
++  it('init shape: empty selection/draft, one chat pane, tool details tab', () => {
+     const store = createChatStore().create()
+-    expect(store.store.getSnapshot()).toEqual({ selection: null, draft: '', view: null, inspect: null })
++    expect(store.store.getSnapshot()).toEqual({
++      selection: null,
++      draft: '',
++      panes: { kind: 'leaf', paneId: 'pane-1', viewId: 'chat' },
++      focusedPaneId: null,
++      fullscreenPaneId: null,
++      inspect: null,
++      detailsTab: 'tool',
++    })
+   })
+ 
+   it('actions cover the declared write set', () => {
+@@ -26,13 +34,21 @@ describe('createChatStore', () => {
+     store.actions.setDraft('hello')
+     expect(store.store.getSnapshot().draft).toBe('hello')
+ 
+-    store.actions.setView('chat')
+-    expect(store.store.getSnapshot().view).toBe('chat')
++    store.actions.splitPane('pane-1', 'row')
++    expect(store.store.getSnapshot().panes.kind).toBe('split')
++    store.actions.setPaneView('pane-1', 'terminal')
++    expect(store.store.getSnapshot().panes).toMatchObject({ kind: 'split' })
++    store.actions.switchFocusedTo('trajectory')
++    store.actions.toggleFullscreen('pane-1')
++    expect(store.store.getSnapshot().fullscreenPaneId).toBe('pane-1')
+ 
+     store.actions.setInspect({ callId: 'c1' })
+     expect(store.store.getSnapshot().inspect).toEqual({ callId: 'c1' })
+     store.actions.setInspect(null)
+     expect(store.store.getSnapshot().inspect).toBeNull()
++
++    store.actions.setDetailsTab('files')
++    expect(store.store.getSnapshot().detailsTab).toBe('files')
+   })
+ 
+   it('persists per scope key and rehydrates a fresh instance', () => {
+diff --git a/packages/client/ui-conversation/tests/pane-tree.client.spec.ts b/packages/client/ui-conversation/tests/pane-tree.client.spec.ts
+new file mode 100644
+index 0000000000..bf836a8e07
+--- /dev/null
++++ b/packages/client/ui-conversation/tests/pane-tree.client.spec.ts
+@@ -0,0 +1,81 @@
++/** Pure pane-tree operations: split, close, view/size updates. */
++
++import { describe, expect, it } from 'vitest'
++import {
++  closePane, findLeaf, initialPane, isSingle, parentSplit, setLeafView, setSplitSizes, splitPane,
++} from '../src/client/pane-tree.ts'
++import type { PaneNode } from '../src/client/contract/panes.ts'
++
++describe('initialPane', () => {
++  it('is a single chat leaf', () => {
++    expect(initialPane()).toEqual({ kind: 'leaf', paneId: 'pane-1', viewId: 'chat' })
++  })
++})
++
++describe('splitPane', () => {
++  it('splits a leaf into an even two-child split', () => {
++    const root = splitPane(initialPane(), 'pane-1', 'pane-2', 'split-1', 'row', 'terminal')
++    expect(root).toEqual({
++      kind: 'split', splitId: 'split-1', direction: 'row',
++      children: [
++        { kind: 'leaf', paneId: 'pane-1', viewId: 'chat' },
++        { kind: 'leaf', paneId: 'pane-2', viewId: 'terminal' },
++      ],
++      sizes: [0.5, 0.5],
++    })
++    expect(findLeaf(root, 'pane-2')?.viewId).toBe('terminal')
++  })
++
++  it('splits a nested leaf recursively', () => {
++    const once = splitPane(initialPane(), 'pane-1', 'pane-2', 's1', 'row', 'trajectory')
++    const twice = splitPane(once, 'pane-2', 'pane-3', 's2', 'column', 'terminal')
++    const split = twice as { kind: 'split'; children: PaneNode[] }
++    expect(split.children[1]).toMatchObject({ kind: 'split', splitId: 's2', direction: 'column' })
++    expect(findLeaf(twice, 'pane-3')?.viewId).toBe('terminal')
++  })
++})
++
++describe('closePane', () => {
++  it('collapses a split back to its sibling leaf', () => {
++    const split = splitPane(initialPane(), 'pane-1', 'pane-2', 's1', 'row', 'terminal')
++    expect(closePane(split, 'pane-2')).toEqual({ kind: 'leaf', paneId: 'pane-1', viewId: 'chat' })
++    expect(closePane(split, 'pane-1')).toEqual({ kind: 'leaf', paneId: 'pane-2', viewId: 'terminal' })
++  })
++
++  it('re-normalizes sizes when one of three children closes', () => {
++    const three: PaneNode = {
++      kind: 'split', splitId: 's3', direction: 'row',
++      children: [
++        { kind: 'leaf', paneId: 'a', viewId: 'chat' },
++        { kind: 'leaf', paneId: 'b', viewId: 'trajectory' },
++        { kind: 'leaf', paneId: 'c', viewId: 'terminal' },
++      ],
++      sizes: [0.5, 0.3, 0.2],
++    }
++    const closed = closePane(three, 'b') as { kind: 'split'; sizes: number[] }
++    expect(closed.sizes).toHaveLength(2)
++    expect(closed.sizes.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1)
++    expect(closed.sizes[0]).toBeCloseTo(0.5 / 0.7)
++  })
++})
++
++describe('setLeafView and setSplitSizes', () => {
++  it('changes a leaf view and normalizes split sizes', () => {
++    const split = splitPane(initialPane(), 'pane-1', 'pane-2', 's1', 'row', 'trajectory')
++    const viewed = setLeafView(split, 'pane-1', 'terminal')
++    expect(findLeaf(viewed, 'pane-1')?.viewId).toBe('terminal')
++    const sized = setSplitSizes(split, 's1', [0.7, 0.3])
++    expect((sized as { kind: 'split'; sizes: number[] }).sizes).toEqual([0.7, 0.3])
++  })
++})
++
++describe('isSingle and parentSplit', () => {
++  it('reports singletons and locates the containing split', () => {
++    expect(isSingle(initialPane())).toBe(true)
++    const split = splitPane(initialPane(), 'pane-1', 'pane-2', 's1', 'row', 'trajectory')
++    expect(isSingle(split)).toBe(false)
++    expect(parentSplit(split, 'pane-2')).toMatchObject({ splitId: 's1' })
++    expect(parentSplit(split, 'pane-1')).toMatchObject({ splitId: 's1' })
++    expect(parentSplit(initialPane(), 'pane-1')).toBeUndefined()
++  })
++})
+diff --git a/packages/client/ui-conversation/tests/pane-tree.client.spec.tsx b/packages/client/ui-conversation/tests/pane-tree.client.spec.tsx
+new file mode 100644
+index 0000000000..6a28029ad9
+--- /dev/null
++++ b/packages/client/ui-conversation/tests/pane-tree.client.spec.tsx
+@@ -0,0 +1,114 @@
++// @vitest-environment jsdom
++/** PaneTree: renders leaves/splits, drives chrome verbs, and drags dividers. */
++
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import { cleanup, fireEvent, render } from '@testing-library/react'
++import { PaneTree } from '../src/client/PaneTree.tsx'
++import type { PaneNode } from '../src/client/contract/panes.ts'
++
++const TABS = [
++  { id: 'chat', label: 'Chat' },
++  { id: 'trajectory', label: 'Trajectory' },
++  { id: 'terminal', label: 'Terminal' },
++]
++
++function renderTree(root: PaneNode, overrides: Partial<Parameters<typeof PaneTree>[0]> = {}) {
++  const onFocus = vi.fn()
++  const onSplit = vi.fn()
++  const onClose = vi.fn()
++  const onFullscreen = vi.fn()
++  const onResize = vi.fn()
++  const view = render(
++    <PaneTree
++      root={root}
++      focusedPaneId={null}
++      fullscreenPaneId={null}
++      tabs={TABS}
++      renderView={viewId => <div data-view-id={viewId} />}
++      onFocus={onFocus}
++      onSplit={onSplit}
++      onClose={onClose}
++      onFullscreen={onFullscreen}
++      onResize={onResize}
++      t={key => key}
++      {...overrides}
++    />,
++  )
++  return { view, onFocus, onSplit, onClose, onFullscreen, onResize }
++}
++
++afterEach(cleanup)
++
++describe('PaneTree', () => {
++  it('renders a single leaf with its view and chrome', () => {
++    const { view } = renderTree({ kind: 'leaf', paneId: 'pane-1', viewId: 'chat' })
++    expect(view.container.querySelector('[data-view-id="chat"]')).toBeTruthy()
++    expect(view.getByRole('button', { name: 'pane.splitRight' })).toBeTruthy()
++    expect(view.container.querySelector('[data-conversation-composer-overlay]')).toBeTruthy()
++    expect(view.container.querySelector('[data-pane-view]')).toBeTruthy()
++  })
++
++  it('renders a split with both leaves and a divider', () => {
++    const root: PaneNode = {
++      kind: 'split', splitId: 's1', direction: 'row',
++      children: [
++        { kind: 'leaf', paneId: 'a', viewId: 'chat' },
++        { kind: 'leaf', paneId: 'b', viewId: 'terminal' },
++      ],
++      sizes: [0.5, 0.5],
++    }
++    const { view } = renderTree(root)
++    expect(view.container.querySelector('[data-view-id="chat"]')).toBeTruthy()
++    expect(view.container.querySelector('[data-view-id="terminal"]')).toBeTruthy()
++    expect(view.container.querySelector('[data-direction="row"]')).toBeTruthy()
++  })
++
++  it('renders only the fullscreen leaf when one is set', () => {
++    const root: PaneNode = {
++      kind: 'split', splitId: 's1', direction: 'row',
++      children: [
++        { kind: 'leaf', paneId: 'a', viewId: 'chat' },
++        { kind: 'leaf', paneId: 'b', viewId: 'terminal' },
++      ],
++      sizes: [0.5, 0.5],
++    }
++    const { view } = renderTree(root, { fullscreenPaneId: 'b' })
++    expect(view.container.querySelector('[data-view-id="terminal"]')).toBeTruthy()
++    expect(view.container.querySelector('[data-view-id="chat"]')).toBeNull()
++  })
++
++  it('fires split/close/fullscreen/focus for a leaf', () => {
++    const { view, onSplit, onClose, onFullscreen, onFocus } = renderTree({ kind: 'leaf', paneId: 'pane-1', viewId: 'chat' })
++    fireEvent.click(view.getByRole('button', { name: 'pane.splitRight' }))
++    expect(onSplit).toHaveBeenCalledWith('pane-1', 'row')
++    fireEvent.click(view.getByRole('button', { name: 'pane.splitDown' }))
++    expect(onSplit).toHaveBeenCalledWith('pane-1', 'column')
++    fireEvent.click(view.getByRole('button', { name: 'pane.fullscreen' }))
++    expect(onFullscreen).toHaveBeenCalledWith('pane-1')
++    fireEvent.click(view.getByRole('button', { name: 'pane.close' }))
++    expect(onClose).toHaveBeenCalledWith('pane-1')
++    fireEvent.pointerDown(view.container.querySelector('[data-pane]') as HTMLElement)
++    expect(onFocus).toHaveBeenCalledWith('pane-1')
++  })
++
++  it('drags a divider to resize the two adjacent children', () => {
++    const root: PaneNode = {
++      kind: 'split', splitId: 's1', direction: 'row',
++      children: [
++        { kind: 'leaf', paneId: 'a', viewId: 'chat' },
++        { kind: 'leaf', paneId: 'b', viewId: 'terminal' },
++      ],
++      sizes: [0.5, 0.5],
++    }
++    const { view, onResize } = renderTree(root)
++    const divider = view.container.querySelector('[data-direction="row"]') as HTMLElement
++    Object.defineProperty(divider.parentElement, 'clientWidth', { value: 100, configurable: true })
++    fireEvent.pointerDown(divider, { clientX: 50 })
++    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 60 }))
++    window.dispatchEvent(new PointerEvent('pointerup'))
++    expect(onResize).toHaveBeenCalledWith('s1', expect.any(Array))
++    const sizes = onResize.mock.calls[0][1] as number[]
++    expect(sizes[0]).toBeCloseTo(0.6)
++    expect(sizes[0] + sizes[1]).toBeCloseTo(1)
++  })
++})
+diff --git a/packages/client/ui-conversation/tests/selection-survival.client.spec.tsx b/packages/client/ui-conversation/tests/selection-survival.client.spec.tsx
+index 76ed4e0de5..cd02147b78 100644
+--- a/packages/client/ui-conversation/tests/selection-survival.client.spec.tsx
++++ b/packages/client/ui-conversation/tests/selection-survival.client.spec.tsx
+@@ -93,18 +93,26 @@ describe('selection survives on the store seat', () => {
+     const doomed = storeFor(b, 'conversation.session', sid('s1'))
+     doomed.actions.setDraft('to be buried')
+     doomed.actions.select({ turnSeq: 1 })
+-    expect(localStorage.getItem('dsh.conversation.chat.s1')).not.toBeNull()
++    expect(localStorage.getItem('dsh.conversation.chat.v2.s1')).not.toBeNull()
+ 
+     // TestSessions.remove drives the same public slot lifecycle contract the
+     // production SessionRuntime calls when the scope dies (pruneStoreScope).
+     await b.runtime.sessions.remove('s1')
+ 
+     // Persisted residue is gone with the session...
+-    expect(localStorage.getItem('dsh.conversation.chat.s1')).toBeNull()
++    expect(localStorage.getItem('dsh.conversation.chat.v2.s1')).toBeNull()
+     // ...and a re-created same-id session starts from a FRESH instance.
+     const reborn = storeFor(b, 'conversation.session', sid('s1'))
+     expect(reborn).not.toBe(doomed)
+-    expect(reborn.store.getSnapshot()).toEqual({ selection: null, draft: '', view: null, inspect: null })
++    expect(reborn.store.getSnapshot()).toEqual({
++      selection: null,
++      draft: '',
++      panes: { kind: 'leaf', paneId: 'pane-1', viewId: 'chat' },
++      focusedPaneId: null,
++      fullscreenPaneId: null,
++      inspect: null,
++      detailsTab: 'tool',
++    })
+     await b.runtime.dispose()
+   })
+ })
+diff --git a/packages/client/ui-conversation/tests/skeleton.client.spec.tsx b/packages/client/ui-conversation/tests/skeleton.client.spec.tsx
+index acf618fb2b..8c902fc6ea 100644
+--- a/packages/client/ui-conversation/tests/skeleton.client.spec.tsx
++++ b/packages/client/ui-conversation/tests/skeleton.client.spec.tsx
+@@ -181,6 +181,7 @@ function mount(
+           views={views}
+           releaseSessionImages={vi.fn()}
+           bindDraftMirror={write => wiring.bindMirror(write)}
++          t={t}
+         />
+       )
+     }
+@@ -435,7 +436,7 @@ describe('ConversationRoot resident composer', () => {
+ 
+   it('keeps pending takeover interaction accessible outside the Chat view', () => {
+     const b = mount(conversationSnapshot({ pending: [{} as never] }))
+-    act(() => { b.chat.actions.setView('trajectory') })
++    act(() => { b.chat.actions.switchFocusedTo('trajectory') })
+     expect(b.view.getByTestId('view-trajectory')).toBeTruthy()
+     expect(b.view.getByRole('textbox')).toBeTruthy()
+   })
+@@ -448,7 +449,7 @@ describe('ConversationRoot resident composer', () => {
+     const b = mount(conversationSnapshot(), undefined, undefined, { viewTabs })
+     // A removed dynamic view leaves its persisted id behind. The visible
+     // fallback is Chat and must stay Chat when another lower-order view lands.
+-    act(() => { b.chat.actions.setView('removed-view') })
++    act(() => { b.chat.actions.switchFocusedTo('removed-view') })
+     expect(b.view.getByTestId('view-chat')).toBeTruthy()
+ 
+     viewTabs.unshift({ id: 'new-view', label: 'New view' })
+diff --git a/packages/client/ui-conversation/tests/toggle-explorer.client.spec.tsx b/packages/client/ui-conversation/tests/toggle-explorer.client.spec.tsx
+new file mode 100644
+index 0000000000..abe5ae0206
+--- /dev/null
++++ b/packages/client/ui-conversation/tests/toggle-explorer.client.spec.tsx
+@@ -0,0 +1,42 @@
++// @vitest-environment jsdom
++/** ToggleExplorer: opens the details panel on files, or closes it when already there. */
++
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import { cleanup, fireEvent, render, screen } from '@testing-library/react'
++import { ToggleExplorer } from '../src/client/skeleton/ToggleExplorer.tsx'
++import type { ToggleExplorerProps } from '../src/client/skeleton/ToggleExplorer.tsx'
++
++function setup(tab: 'tool' | 'files') {
++  const openDetails = vi.fn()
++  const closeDetails = vi.fn()
++  const setDetailsTab = vi.fn()
++  const componentProps = {
++    useStore: (selector: (s: { detailsTab: 'tool' | 'files' }) => unknown) => selector({ detailsTab: tab }),
++    actions: { setDetailsTab },
++    openDetails,
++    closeDetails,
++    t: (key: string) => key,
++  } as unknown as ToggleExplorerProps
++  render(<ToggleExplorer {...componentProps} />)
++  return { openDetails, closeDetails, setDetailsTab }
++}
++
++afterEach(cleanup)
++
++describe('ToggleExplorer', () => {
++  it('opens the details panel on the files tab from the tool tab', () => {
++    const s = setup('tool')
++    fireEvent.click(screen.getByRole('button', { name: 'details.toggleExplorer' }))
++    expect(s.openDetails).toHaveBeenCalledTimes(1)
++    expect(s.setDetailsTab).toHaveBeenCalledWith('files')
++    expect(s.closeDetails).not.toHaveBeenCalled()
++  })
++
++  it('closes the details panel when already on the files tab', () => {
++    const s = setup('files')
++    fireEvent.click(screen.getByRole('button', { name: 'details.toggleExplorer' }))
++    expect(s.closeDetails).toHaveBeenCalledTimes(1)
++    expect(s.setDetailsTab).toHaveBeenCalledWith('tool')
++    expect(s.openDetails).not.toHaveBeenCalled()
++  })
++})
 diff --git a/packages/client/ui-files/README.i18n.yaml b/packages/client/ui-files/README.i18n.yaml
 new file mode 100644
 index 0000000000..0a4a682bba
@@ -1343,10 +2760,10 @@ index 0000000000..a0ff795870
 +- **每次保存都排队一条模型通知**——重复保存会各自注入一条上下文消息;去重留待后续。
 diff --git a/packages/client/ui-files/package.json b/packages/client/ui-files/package.json
 new file mode 100644
-index 0000000000..5e9d28d4cc
+index 0000000000..6ab1b80d73
 --- /dev/null
 +++ b/packages/client/ui-files/package.json
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,90 @@
 +{
 +  "name": "@deepseek-ai/dsh-client-ui-files",
 +  "description": "Details-panel files tab plugin: workspace file tree with lazy level loading and a read-only text preview",
@@ -1395,6 +2812,12 @@ index 0000000000..5e9d28d4cc
 +  },
 +  "license": "MIT",
 +  "dependencies": {
++    "@codemirror/lang-css": "^6.3.1",
++    "@codemirror/lang-html": "^6.4.9",
++    "@codemirror/lang-javascript": "^6.2.4",
++    "@codemirror/lang-json": "^6.0.2",
++    "@codemirror/lang-markdown": "^6.5.0",
++    "@codemirror/lang-python": "^6.2.1",
 +    "@codemirror/state": "^6.7.1",
 +    "@replit/codemirror-emacs": "^0.20.0",
 +    "@replit/codemirror-vim": "^6.2.0",
@@ -1460,10 +2883,10 @@ index 0000000000..e6f17a084e
 +}
 diff --git a/packages/client/ui-files/src/client/EditorPane.tsx b/packages/client/ui-files/src/client/EditorPane.tsx
 new file mode 100644
-index 0000000000..2d45e80edd
+index 0000000000..3265c97f6c
 --- /dev/null
 +++ b/packages/client/ui-files/src/client/EditorPane.tsx
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,115 @@
 +// EditorPane: a thin CodeMirror mount. The panel owns every business fact
 +// (content, version, dirty, save, conflict, keymap); this component only turns
 +// text in and out around one EditorView with the selected keymap. Remounts per
@@ -1473,6 +2896,12 @@ index 0000000000..2d45e80edd
 +import { useEffect, useRef } from 'react'
 +import { EditorView, basicSetup } from 'codemirror'
 +import type { Extension } from '@codemirror/state'
++import { javascript } from '@codemirror/lang-javascript'
++import { json } from '@codemirror/lang-json'
++import { html } from '@codemirror/lang-html'
++import { css as cssLanguage } from '@codemirror/lang-css'
++import { markdown } from '@codemirror/lang-markdown'
++import { python } from '@codemirror/lang-python'
 +import { vim } from '@replit/codemirror-vim'
 +import { emacs } from '@replit/codemirror-emacs'
 +import css from './EditorPane.module.css'
@@ -1489,6 +2918,8 @@ index 0000000000..2d45e80edd
 +export interface EditorPaneProps {
 +  /** Initial document content (a reload remounts via the panel's key). */
 +  value: string
++  /** The file's path/name, used only to pick the syntax-highlighting language. */
++  filename?: string
 +  /** Fires on every document change with the full current text. */
 +  onChange: (text: string) => void
 +  /** Which keymap the view binds. */
@@ -1498,10 +2929,45 @@ index 0000000000..2d45e80edd
 +}
 +
 +/**
++ * Static per-extension language support (imported, not dynamically loaded):
++ * the single-file client bundle cannot code-split, so the dynamic
++ * `import()` inside `@codemirror/language-data` would emit an unresolvable
++ * chunk require. This bounded set covers the common text-file families.
++ */
++const EXTENSION_LANGUAGES: Record<string, Extension> = {
++  js: javascript(),
++  jsx: javascript({ jsx: true }),
++  ts: javascript({ typescript: true }),
++  tsx: javascript({ typescript: true, jsx: true }),
++  mjs: javascript(),
++  cjs: javascript(),
++  json: json(),
++  jsonc: json(),
++  html: html(),
++  htm: html(),
++  css: cssLanguage(),
++  scss: cssLanguage(),
++  less: cssLanguage(),
++  md: markdown(),
++  mdx: markdown(),
++  py: python(),
++  pyw: python(),
++}
++
++/** Language extension for a filename, or empty when the extension is unknown. */
++function languageExtensions(filename: string | undefined): Extension[] {
++  if (filename === undefined) return []
++  const dot = filename.lastIndexOf('.')
++  if (dot <= 0 || dot === filename.length - 1) return []
++  const language = EXTENSION_LANGUAGES[filename.slice(dot + 1).toLowerCase()]
++  return language === undefined ? [] : [language]
++}
++
++/**
 + * Mount one CodeMirror editor on the host element.
 + * @param props - initial content, change callback, and the bound keymap.
 + */
-+export function EditorPane({ value, onChange, keymap = 'default', onReady }: EditorPaneProps) {
++export function EditorPane({ value, filename, onChange, keymap = 'default', onReady }: EditorPaneProps) {
 +  const host = useRef<HTMLDivElement>(null)
 +  // Latest-callback refs keep the mount-time effect free of dependency
 +  // churn: the view is created once, callbacks never go stale.
@@ -1519,6 +2985,7 @@ index 0000000000..2d45e80edd
 +      extensions: [
 +        basicSetup,
 +        EditorView.lineWrapping,
++        ...languageExtensions(filename),
 +        ...(keymap === 'default' ? [] : KEYMAP_EXTENSIONS[keymap]),
 +        EditorView.updateListener.of(update => {
 +          if (update.docChanged) onChangeRef.current(update.state.doc.toString())
@@ -1535,12 +3002,74 @@ index 0000000000..2d45e80edd
 +
 +  return <div ref={host} className={css.host} />
 +}
+diff --git a/packages/client/ui-files/src/client/FileIcon.tsx b/packages/client/ui-files/src/client/FileIcon.tsx
+new file mode 100644
+index 0000000000..731ba88c8b
+--- /dev/null
++++ b/packages/client/ui-files/src/client/FileIcon.tsx
+@@ -0,0 +1,56 @@
++/** Monochrome file-tree glyphs keyed by entry type and file extension. */
++
++/** Icon vocabulary: one shape per recognizable file family plus generic fallbacks. */
++export type FileIconKind =
++  | 'folder' | 'code' | 'json' | 'markdown' | 'html' | 'css' | 'image' | 'config' | 'text' | 'file'
++
++const EXTENSION_KINDS: Record<string, FileIconKind> = {
++  js: 'code', jsx: 'code', ts: 'code', tsx: 'code', mjs: 'code', cjs: 'code',
++  json: 'json', jsonc: 'json', jsonl: 'json',
++  md: 'markdown', mdx: 'markdown', markdown: 'markdown',
++  html: 'html', htm: 'html', vue: 'html', svelte: 'html', astro: 'html',
++  css: 'css', scss: 'css', less: 'css',
++  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', svg: 'image', webp: 'image', ico: 'image',
++  yml: 'config', yaml: 'config', toml: 'config', ini: 'config', conf: 'config',
++  txt: 'text', log: 'text', text: 'text',
++}
++
++/**
++ * Classify one tree entry by its extension (directories and other non-files
++ * collapse to `folder`).
++ * @param name - the entry's base name.
++ * @param type - the entry's wire type.
++ * @returns the icon kind for the row.
++ */
++export function fileIconKind(name: string, type: 'file' | 'directory' | 'other'): FileIconKind {
++  if (type !== 'file') return 'folder'
++  const dot = name.lastIndexOf('.')
++  if (dot <= 0 || dot === name.length - 1) return 'file'
++  return EXTENSION_KINDS[name.slice(dot + 1).toLowerCase()] ?? 'file'
++}
++
++/** Paths for one icon kind, drawn in a 16×16 viewBox with `currentColor` strokes. */
++const PATHS: Record<FileIconKind, string[]> = {
++  folder: ['M1.5 3.5h4l1.5 1.5h7.5v7.5a1 1 0 0 1-1 1.5h-11a1 1 0 0 1-1-1.5z'],
++  code: ['M6 5 2.5 8 6 11', 'M10 5 13.5 8 10 11'],
++  json: ['M6 4.5c-1.5 0-2.5.5-2.5 1.5v2c0 .8-.6 1-1.5 1 .9 0 1.5.2 1.5 1v2c0 1 1 1.5 2.5 1.5', 'M10 4.5c1.5 0 2.5.5 2.5 1.5v2c0 .8.6 1 1.5 1-.9 0-1.5.2-1.5 1v2c0 1-1 1.5-2.5 1.5'],
++  markdown: ['M2.5 4.5v7', 'M2.5 6.5l2 2 2-2', 'M2.5 8.5l2 2 2-2', 'M10.5 4.5v7h2l-3 2.5L6.5 11.5h2v-7z'],
++  html: ['M3 4.5l1.5 7L8 12.5l3.5-1 1.5-7', 'M5.5 6.5h5', 'M5.5 8.5h5'],
++  css: ['M8 2.5 3 4.5l1 9L8 15.5l4-2 1-9z', 'M6.5 6.5h3v1.5h-1.5v1.5H9.5v-1.5h3v1.5l-.5 3L8 12v-1.5h1.5'],
++  image: ['M2 3.5h12v9H2z', 'M5 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2', 'M2 12.5l3.5-3.5 3 3 2-2 3.5 3.5'],
++  config: ['M8 1.5l1.3 1.6 2-.3.7 1.9-1.5 1.4v1.8L12 9.3l.7 1.9-2 .3L9.4 13.5 8 12.4l-1.4 1.1-1.3-1.8-2 .3-.7-1.9L4 8.7V6.9L2.6 5.5l.7-1.9 2 .3L6.6 2.1 8 3.5z', 'M8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3'],
++  text: ['M3 4h10', 'M3 7h10', 'M3 10h6'],
++  file: ['M4 2h6l2.5 2.5V14H4z', 'M10 2v2.5h2.5'],
++}
++
++/** One tree-row icon: the folder/file glyph matching the entry's classification. */
++export function FileIcon({ kind }: { kind: FileIconKind }) {
++  const paths = PATHS[kind]
++  return (
++    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden className="file-icon" data-kind={kind}>
++      {paths.map((d, index) => (
++        <path key={index} d={d} fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
++      ))}
++    </svg>
++  )
++}
 diff --git a/packages/client/ui-files/src/client/FilesPanel.module.css b/packages/client/ui-files/src/client/FilesPanel.module.css
 new file mode 100644
-index 0000000000..93c3069684
+index 0000000000..a21404d3b9
 --- /dev/null
 +++ b/packages/client/ui-files/src/client/FilesPanel.module.css
-@@ -0,0 +1,199 @@
+@@ -0,0 +1,206 @@
 +/* Files tab: tree above (own scroll), preview below. Panel width comes from
 +   the layout column; this fills it. Colors ride the semantic alias tokens. */
 +
@@ -1629,6 +3158,13 @@ index 0000000000..93c3069684
 +  width: 14px;
 +  color: var(--dsw-alias-label-tertiary);
 +  transition: transform 120ms ease;
++}
++
++.icon {
++  display: flex;
++  flex: none;
++  align-items: center;
++  color: var(--dsw-alias-label-tertiary);
 +}
 +
 +.chevron[data-open] {
@@ -1742,10 +3278,10 @@ index 0000000000..93c3069684
 +}
 diff --git a/packages/client/ui-files/src/client/FilesPanel.tsx b/packages/client/ui-files/src/client/FilesPanel.tsx
 new file mode 100644
-index 0000000000..69929da922
+index 0000000000..89f9705bd1
 --- /dev/null
 +++ b/packages/client/ui-files/src/client/FilesPanel.tsx
-@@ -0,0 +1,294 @@
+@@ -0,0 +1,298 @@
 +// FilesPanel: the details panel's files tab — the session workspace's file
 +// tree with lazy level loading plus an editable preview of the selected text
 +// file. All data arrives through the injected files.* callbacks; the only
@@ -1760,6 +3296,7 @@ index 0000000000..69929da922
 +import type { FilesPanelProps } from './contract.ts'
 +import { EditorPane } from './EditorPane.tsx'
 +import type { EditorKeymap } from './EditorPane.tsx'
++import { FileIcon, fileIconKind } from './FileIcon.tsx'
 +import css from './FilesPanel.module.css'
 +
 +/** One loaded tree level: settled entries, null entries while loading. */
@@ -1941,6 +3478,7 @@ index 0000000000..69929da922
 +          onClick={() => { toggle(entry.path) }}
 +        >
 +          <span className={css.chevron} data-open={isExpanded || undefined} aria-hidden>▸</span>
++          <span className={css.icon}><FileIcon kind="folder" /></span>
 +          {entry.name}
 +        </button>,
 +      )
@@ -1954,6 +3492,7 @@ index 0000000000..69929da922
 +          aria-label={t('tree.file', { name: entry.name })}
 +          onClick={() => { void openFile(entry.path) }}
 +        >
++          <span className={css.icon}><FileIcon kind={fileIconKind(entry.name, entry.type)} /></span>
 +          {entry.name}
 +        </button>,
 +      )
@@ -2023,6 +3562,7 @@ index 0000000000..69929da922
 +              <EditorPane
 +                key={`${selected}:${generation}:${keymap}`}
 +                value={preview}
++                filename={selected}
 +                keymap={keymap}
 +                onChange={text => {
 +                  setPreview(text)
@@ -2353,10 +3893,10 @@ index 0000000000..af4d126d5f
 +})
 diff --git a/packages/client/ui-files/tests/editor-pane.client.spec.tsx b/packages/client/ui-files/tests/editor-pane.client.spec.tsx
 new file mode 100644
-index 0000000000..cb4a2c276b
+index 0000000000..bddc4a29ce
 --- /dev/null
 +++ b/packages/client/ui-files/tests/editor-pane.client.spec.tsx
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,134 @@
 +// @vitest-environment jsdom
 +/** EditorPane: mounts one CodeMirror view, relays doc changes, destroys on unmount. */
 +
@@ -2367,6 +3907,12 @@ index 0000000000..cb4a2c276b
 +
 +vi.mock('@replit/codemirror-vim', () => ({ vim: () => 'VIM_KEYMAP' }))
 +vi.mock('@replit/codemirror-emacs', () => ({ emacs: () => 'EMACS_KEYMAP' }))
++vi.mock('@codemirror/lang-javascript', () => ({ javascript: () => 'JS_LANG' }))
++vi.mock('@codemirror/lang-json', () => ({ json: () => 'JSON_LANG' }))
++vi.mock('@codemirror/lang-html', () => ({ html: () => 'HTML_LANG' }))
++vi.mock('@codemirror/lang-css', () => ({ css: () => 'CSS_LANG' }))
++vi.mock('@codemirror/lang-markdown', () => ({ markdown: () => 'MD_LANG' }))
++vi.mock('@codemirror/lang-python', () => ({ python: () => 'PY_LANG' }))
 +
 +interface MockEditorViewInstance {
 +  readonly config: { doc: string; extensions: unknown[]; parent: HTMLElement }
@@ -2452,12 +3998,85 @@ index 0000000000..cb4a2c276b
 +    expect(MockView.views[0]?.config.extensions).not.toContain('EMACS_KEYMAP')
 +  })
 +
++  it('binds no syntax language without a filename', () => {
++    render(<EditorPane value="alpha" onChange={() => {}} />)
++    const extensions = MockView.views[0]?.config.extensions ?? []
++    expect(extensions).not.toContain('JS_LANG')
++  })
++
++  it('binds the matching language for known extensions', () => {
++    render(<EditorPane value="alpha" filename="x.ts" onChange={() => {}} />)
++    expect(MockView.views[0]?.config.extensions).toContain('JS_LANG')
++    cleanup()
++    render(<EditorPane value="alpha" filename="x.json" onChange={() => {}} />)
++    expect(MockView.views[0]?.config.extensions).toContain('JSON_LANG')
++    cleanup()
++    render(<EditorPane value="alpha" filename="x.md" onChange={() => {}} />)
++    expect(MockView.views[0]?.config.extensions).toContain('MD_LANG')
++  })
++
++  it('binds no language for an unknown extension or extension-less name', () => {
++    render(<EditorPane value="alpha" filename="x.unknown" onChange={() => {}} />)
++    expect(MockView.views[0]?.config.extensions).not.toContain('JS_LANG')
++    cleanup()
++    render(<EditorPane value="alpha" filename="Makefile" onChange={() => {}} />)
++    expect(MockView.views[0]?.config.extensions).not.toContain('JS_LANG')
++  })
++
 +  it('binds the vim and emacs keymaps when selected', () => {
 +    render(<EditorPane value="alpha" onChange={() => {}} keymap="vim" />)
 +    expect(MockView.views[0]?.config.extensions).toContain('VIM_KEYMAP')
 +    cleanup()
 +    render(<EditorPane value="alpha" onChange={() => {}} keymap="emacs" />)
 +    expect(MockView.views[0]?.config.extensions).toContain('EMACS_KEYMAP')
++  })
++})
+diff --git a/packages/client/ui-files/tests/file-icon.client.spec.tsx b/packages/client/ui-files/tests/file-icon.client.spec.tsx
+new file mode 100644
+index 0000000000..0f81f7d7c9
+--- /dev/null
++++ b/packages/client/ui-files/tests/file-icon.client.spec.tsx
+@@ -0,0 +1,42 @@
++// @vitest-environment jsdom
++/** FileIcon: extension classification and per-kind glyph rendering. */
++
++import { describe, expect, it } from 'vitest'
++import { render } from '@testing-library/react'
++import { FileIcon, fileIconKind } from '../src/client/FileIcon.tsx'
++
++describe('fileIconKind', () => {
++  it('collapses directories and other non-files to folder', () => {
++    expect(fileIconKind('src', 'directory')).toBe('folder')
++    expect(fileIconKind('socket', 'other')).toBe('folder')
++  })
++
++  it('maps well-known extensions to their glyph family', () => {
++    expect(fileIconKind('app.ts', 'file')).toBe('code')
++    expect(fileIconKind('Component.tsx', 'file')).toBe('code')
++    expect(fileIconKind('pkg.json', 'file')).toBe('json')
++    expect(fileIconKind('README.md', 'file')).toBe('markdown')
++    expect(fileIconKind('index.html', 'file')).toBe('html')
++    expect(fileIconKind('style.css', 'file')).toBe('css')
++    expect(fileIconKind('logo.png', 'file')).toBe('image')
++    expect(fileIconKind('config.yml', 'file')).toBe('config')
++    expect(fileIconKind('note.txt', 'file')).toBe('text')
++  })
++
++  it('falls back to file for extension-less and trailing-dot names', () => {
++    expect(fileIconKind('Makefile', 'file')).toBe('file')
++    expect(fileIconKind('LICENSE.', 'file')).toBe('file')
++    expect(fileIconKind('unknown.zzz', 'file')).toBe('file')
++  })
++})
++
++describe('FileIcon', () => {
++  it('renders the glyph paths for each kind', () => {
++    for (const kind of ['folder', 'code', 'json', 'markdown', 'html', 'css', 'image', 'config', 'text', 'file'] as const) {
++      const { container, unmount } = render(<FileIcon kind={kind} />)
++      expect(container.querySelector(`svg[data-kind="${kind}"]`)).toBeTruthy()
++      expect(container.querySelectorAll('path').length).toBeGreaterThan(0)
++      unmount()
++    }
 +  })
 +})
 diff --git a/packages/client/ui-files/tests/files-panel.client.spec.tsx b/packages/client/ui-files/tests/files-panel.client.spec.tsx
@@ -4011,6 +5630,18 @@ index 12af87cef6..8c6a3169a4 100644
    it('a live keyed registration takes over its tool row and unload reverts to the fallback', async () => {
      const b = await bench([toolResult(3, 'c2', 'mystery', '{"n":1}')])
      const view = b.runtime.renderRoot()
+diff --git a/packages/client/ui-trajectory/tests/views.client.spec.tsx b/packages/client/ui-trajectory/tests/views.client.spec.tsx
+index 77c35873df..cebe1c80a6 100644
+--- a/packages/client/ui-trajectory/tests/views.client.spec.tsx
++++ b/packages/client/ui-trajectory/tests/views.client.spec.tsx
+@@ -293,6 +293,7 @@ function mount(slots: SlotRegistry, nodes: ConversationSnapshot['nodes'] = NODES
+         useInput={useInput}
+         inputActions={inputActions}
+         bindDraftMirror={() => () => {}}
++        t={tConversation}
+       />
+     </>,
+   )
 diff --git a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx b/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
 index 8be62e8209..759d587523 100644
 --- a/packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx
@@ -7757,7 +9388,7 @@ index 0000000000..b3c43566e1
 +  ]
 +}
 diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
-index 1490a0f9f7..c30b7da276 100644
+index 1490a0f9f7..4bc43eb23c 100644
 --- a/pnpm-lock.yaml
 +++ b/pnpm-lock.yaml
 @@ -1303,6 +1303,9 @@ importers:
@@ -7796,12 +9427,30 @@ index 1490a0f9f7..c30b7da276 100644
        '@deepseek-ai/dsh-message-feedback':
          specifier: workspace:^
          version: link:../../feedback/message-feedback
-@@ -1987,6 +1999,58 @@ importers:
+@@ -1987,6 +1999,76 @@ importers:
          specifier: ^18.2.0
          version: 18.3.1(react@18.3.1)
  
 +  packages/client/ui-files:
 +    dependencies:
++      '@codemirror/lang-css':
++        specifier: ^6.3.1
++        version: 6.3.1
++      '@codemirror/lang-html':
++        specifier: ^6.4.9
++        version: 6.4.12
++      '@codemirror/lang-javascript':
++        specifier: ^6.2.4
++        version: 6.2.5
++      '@codemirror/lang-json':
++        specifier: ^6.0.2
++        version: 6.0.2
++      '@codemirror/lang-markdown':
++        specifier: ^6.5.0
++        version: 6.5.2
++      '@codemirror/lang-python':
++        specifier: ^6.2.1
++        version: 6.2.1
 +      '@codemirror/state':
 +        specifier: ^6.7.1
 +        version: 6.7.1
@@ -7855,7 +9504,7 @@ index 1490a0f9f7..c30b7da276 100644
    packages/client/ui-goal:
      devDependencies:
        '@deepseek-ai/cordis':
-@@ -2766,6 +2830,49 @@ importers:
+@@ -2766,6 +2848,49 @@ importers:
          specifier: ~18.3.1
          version: 18.3.31
  
@@ -7905,7 +9554,7 @@ index 1490a0f9f7..c30b7da276 100644
    packages/client/ui-theme:
      dependencies:
        '@deepseek-ai/dsh-client-connection':
-@@ -4792,6 +4899,9 @@ importers:
+@@ -4792,6 +4917,9 @@ importers:
        '@deepseek-ai/dsh-cordis-host-runner':
          specifier: workspace:^
          version: link:../../extensions/cordis-host-runner
@@ -7915,7 +9564,7 @@ index 1490a0f9f7..c30b7da276 100644
        '@deepseek-ai/dsh-invariants':
          specifier: workspace:^
          version: link:../../runtime-diagnostics/invariants
-@@ -4929,6 +5039,44 @@ importers:
+@@ -4929,6 +5057,44 @@ importers:
          specifier: workspace:^
          version: link:../../typert/protocol
  
@@ -7960,7 +9609,7 @@ index 1490a0f9f7..c30b7da276 100644
    packages/host/webserver:
      dependencies:
        '@deepseek-ai/schemastery':
-@@ -4942,6 +5090,34 @@ importers:
+@@ -4942,6 +5108,34 @@ importers:
          specifier: workspace:^
          version: link:../../runtime-diagnostics/invariants
  
@@ -7995,7 +9644,7 @@ index 1490a0f9f7..c30b7da276 100644
    packages/identity/anonymous-user-id:
      devDependencies:
        '@deepseek-ai/cordis':
-@@ -9182,6 +9358,27 @@ packages:
+@@ -9182,6 +9376,45 @@ packages:
    '@chevrotain/types@11.1.2':
      resolution: {integrity: sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw==}
  
@@ -8004,6 +9653,24 @@ index 1490a0f9f7..c30b7da276 100644
 +
 +  '@codemirror/commands@6.10.4':
 +    resolution: {integrity: sha512-Ryk9y9T0FFVF0cUGhAknveAyUOl/A1qReTFi+qPKtOh2Z9F4AUBz3XOrYD4ZEgZirdugVzHvd/2/Wcwy5OliTg==}
++
++  '@codemirror/lang-css@6.3.1':
++    resolution: {integrity: sha512-kr5fwBGiGtmz6l0LSJIbno9QrifNMUusivHbnA1H6Dmqy4HZFte3UAICix1VuKo0lMPKQr2rqB+0BkKi/S3Ejg==}
++
++  '@codemirror/lang-html@6.4.12':
++    resolution: {integrity: sha512-pw2ReWKUqSkbvh76RAT4NYxiogRu+PWkR2ukAwO9uOgrm8uipkzjtKKtNpyeAQwHOqxEeSvAXZ6vr3AfyB9y/w==}
++
++  '@codemirror/lang-javascript@6.2.5':
++    resolution: {integrity: sha512-zD4e5mS+50htS7F+TYjBPsiIFGanfVqg4HyUz6WNFikgOPf2BgKlx+TQedI1w6n/IqRBVBbBWmGFdLB/7uxO4A==}
++
++  '@codemirror/lang-json@6.0.2':
++    resolution: {integrity: sha512-x2OtO+AvwEHrEwR0FyyPtfDUiloG3rnVTSZV1W8UteaLL8/MajQd8DpvUb2YVzC+/T18aSDv0H9mu+xw0EStoQ==}
++
++  '@codemirror/lang-markdown@6.5.2':
++    resolution: {integrity: sha512-AwBOdkWYuA//WcM0xO5PfHPUcmz/O2i5o0Nsg1U69SII/loCJlFI1Romd9xp2HYb1kYJRGZotyqRghuHH5n8Kw==}
++
++  '@codemirror/lang-python@6.2.1':
++    resolution: {integrity: sha512-IRjC8RUBhn9mGR9ywecNhB51yePWCGgvHfY1lWN/Mrp3cKuHr0isDKia+9HnvhiWNnMpbGhWrkhuWOc09exRyw==}
 +
 +  '@codemirror/language@6.12.4':
 +    resolution: {integrity: sha512-1q4PaT+o6PbgpkJt4Q8Fv5XJxTy4FUZ4MWETtyiDw3J0Pyr9E2vqcKL+k9wcvjNTIsauxvE7OfmWj3FRPHQ76A==}
@@ -8023,18 +9690,36 @@ index 1490a0f9f7..c30b7da276 100644
    '@connectrpc/connect-web@2.0.0-rc.3':
      resolution: {integrity: sha512-w88P8Lsn5CCsA7MFRl2e6oLY4J/5toiNtJns/YJrlyQaWOy3RO8pDgkz+iIkG98RPMhj2thuBvsd3Cn4DKKCkw==}
      peerDependencies:
-@@ -10079,6 +10276,18 @@ packages:
+@@ -10079,6 +10312,36 @@ packages:
      cpu: [x64]
      os: [win32]
  
 +  '@lezer/common@1.5.2':
 +    resolution: {integrity: sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==}
 +
++  '@lezer/css@1.3.6':
++    resolution: {integrity: sha512-YJE78Wcg+zX8f10hiHWQ4Az48Qr/c13eId0VtRQYLBpxHDmDeSrXIlkbl+fJGW42rWC/uoUco9mhBZeVWP/A1g==}
++
 +  '@lezer/highlight@1.2.3':
 +    resolution: {integrity: sha512-qXdH7UqTvGfdVBINrgKhDsVTJTxactNNxLk7+UMwZhU13lMHaOBlJe9Vqp907ya56Y3+ed2tlqzys7jDkTmW0g==}
 +
++  '@lezer/html@1.3.13':
++    resolution: {integrity: sha512-oI7n6NJml729m7pjm9lvLvmXbdoMoi2f+1pwSDJkl9d68zGr7a9Btz8NdHTGQZtW2DA25ybeuv/SyDb9D5tseg==}
++
++  '@lezer/javascript@1.5.4':
++    resolution: {integrity: sha512-vvYx3MhWqeZtGPwDStM2dwgljd5smolYD2lR2UyFcHfxbBQebqx8yjmFmxtJ/E6nN6u1D9srOiVWm3Rb4tmcUA==}
++
++  '@lezer/json@1.0.3':
++    resolution: {integrity: sha512-BP9KzdF9Y35PDpv04r0VeSTKDeox5vVr3efE7eBbx3r4s3oNLfunchejZhjArmeieBH+nVOpgIiBJpEAv8ilqQ==}
++
 +  '@lezer/lr@1.4.10':
 +    resolution: {integrity: sha512-rnCpTIBafOx4mRp43xOxDJbFipJm/c0cia/V5TiGlhmMa+wsSdoGmUN3w5Bqrks/09Q/D4tNAmWaT8p6NRi77A==}
++
++  '@lezer/markdown@1.7.2':
++    resolution: {integrity: sha512-iTkYvoVcKt3WkeL7qUDyXHONZEwLio4wj8KTNi2dnjQEXBZKMV63BpQrPqfsM+OkvuRbiSTAcycYAsQzLhRNoQ==}
++
++  '@lezer/python@1.1.19':
++    resolution: {integrity: sha512-MhQIURHRytsNzP/YXnqpYKW6la6voAH3kyplTOOiCdjyFY6cWWGFVmYVdHIPrElqSDf4iCDktQCockB9FxuhzQ==}
 +
 +  '@marijn/find-cluster-break@1.0.3':
 +    resolution: {integrity: sha512-FY+MKLBoTsLNJF/eLWaOsXGdz6uh3Iu1axjPf6TUq92IYumcTcXWHoS747JARLkcdlJ/Waiaxc5wQfFO8jC6NA==}
@@ -8042,7 +9727,7 @@ index 1490a0f9f7..c30b7da276 100644
    '@mermaid-js/mermaid-mindmap@9.3.0':
      resolution: {integrity: sha512-IhtYSVBBRYviH1Ehu8gk69pMDF8DSRqXBRDMWrEfHoaMruHeaP2DXA3PBnuwsMaCdPQhlUUcy/7DBLAEIXvCAw==}
  
-@@ -10666,6 +10875,27 @@ packages:
+@@ -10666,6 +10929,27 @@ packages:
    '@quansync/fs@1.0.0':
      resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
  
@@ -8070,7 +9755,7 @@ index 1490a0f9f7..c30b7da276 100644
    '@rolldown/binding-android-arm64@1.0.3':
      resolution: {integrity: sha512-454rs7jHngixp/NMxd5srYD57OnzSlZ/eFTETjORQHLwJG1lRtmNOJcBerZlfu4GjKqeq8aCCIQrMdHyhI51Hw==}
      engines: {node: ^20.19.0 || >=22.12.0}
-@@ -11560,6 +11790,9 @@ packages:
+@@ -11560,6 +11844,9 @@ packages:
    '@vueuse/shared@12.8.2':
      resolution: {integrity: sha512-dznP38YzxZoNloI0qpEfpkms8knDtaoQ6Y/sfS0L7Yki4zh40LFHEhur0odJC6xTHG5dxWVPiUWBXn+wCG2s5w==}
  
@@ -8080,7 +9765,7 @@ index 1490a0f9f7..c30b7da276 100644
    '@yarnpkg/cli-dist@4.17.1':
      resolution: {integrity: sha512-2tiSQuJNl/L3QwTdrq6lKWDpkcnp9MGvCT/rIldHcbu3SWfnLdmehvt3eulX1hT7FFt1Gjfq3CesF+kvhFip6g==}
      engines: {node: '>=18.12.0'}
-@@ -11756,6 +11989,9 @@ packages:
+@@ -11756,6 +12043,9 @@ packages:
      resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
      engines: {node: '>=6'}
  
@@ -8090,7 +9775,7 @@ index 1490a0f9f7..c30b7da276 100644
    color-convert@2.0.1:
      resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
      engines: {node: '>=7.0.0'}
-@@ -11821,6 +12057,9 @@ packages:
+@@ -11821,6 +12111,9 @@ packages:
    cose-base@2.2.0:
      resolution: {integrity: sha512-AzlgcsCbUMymkADOJtQm3wO9S3ltPfYOFD5033keQn9NJzIbtnZj+UdBJe7DYml/8TdbtHJW3j58SOnKhWY/5g==}
  
@@ -8100,7 +9785,7 @@ index 1490a0f9f7..c30b7da276 100644
    cross-spawn@7.0.6:
      resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
      engines: {node: '>= 8'}
-@@ -12953,8 +13192,8 @@ packages:
+@@ -12953,8 +13246,8 @@ packages:
    mdn-data@2.27.1:
      resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
  
@@ -8111,7 +9796,7 @@ index 1490a0f9f7..c30b7da276 100644
      engines: {node: '>= 0.8'}
  
    merge-descriptors@2.0.0:
-@@ -13696,6 +13935,9 @@ packages:
+@@ -13696,6 +13989,9 @@ packages:
    strnum@2.4.0:
      resolution: {integrity: sha512-sHrVyWWdq28RbhjuJdZsA1SnGRJV6NiXbk6AXBxDOsgAcA+lmpUZCYjOdLBxkXMwis6RRe7dlZt4VlIWFVzkmg==}
  
@@ -8121,7 +9806,7 @@ index 1490a0f9f7..c30b7da276 100644
    stylis@4.4.0:
      resolution: {integrity: sha512-5Z9ZpRzfuH6l/UAvCPAPUo3665Nk2wLaZU3x+TLHKVzIz33+sbJqbtrYoC3KD4/uVOr2Zp+L0LySezP9OHV9yA==}
  
-@@ -14133,6 +14375,9 @@ packages:
+@@ -14133,6 +14429,9 @@ packages:
        typescript:
          optional: true
  
@@ -8131,7 +9816,7 @@ index 1490a0f9f7..c30b7da276 100644
    w3c-xmlserializer@5.0.0:
      resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
      engines: {node: '>=18'}
-@@ -14824,6 +15069,52 @@ snapshots:
+@@ -14824,6 +15123,105 @@ snapshots:
  
    '@chevrotain/types@11.1.2': {}
  
@@ -8148,6 +9833,59 @@ index 1490a0f9f7..c30b7da276 100644
 +      '@codemirror/state': 6.7.1
 +      '@codemirror/view': 6.43.8
 +      '@lezer/common': 1.5.2
++
++  '@codemirror/lang-css@6.3.1':
++    dependencies:
++      '@codemirror/autocomplete': 6.20.3
++      '@codemirror/language': 6.12.4
++      '@codemirror/state': 6.7.1
++      '@lezer/common': 1.5.2
++      '@lezer/css': 1.3.6
++
++  '@codemirror/lang-html@6.4.12':
++    dependencies:
++      '@codemirror/autocomplete': 6.20.3
++      '@codemirror/lang-css': 6.3.1
++      '@codemirror/lang-javascript': 6.2.5
++      '@codemirror/language': 6.12.4
++      '@codemirror/state': 6.7.1
++      '@codemirror/view': 6.43.8
++      '@lezer/common': 1.5.2
++      '@lezer/css': 1.3.6
++      '@lezer/html': 1.3.13
++
++  '@codemirror/lang-javascript@6.2.5':
++    dependencies:
++      '@codemirror/autocomplete': 6.20.3
++      '@codemirror/language': 6.12.4
++      '@codemirror/lint': 6.9.7
++      '@codemirror/state': 6.7.1
++      '@codemirror/view': 6.43.8
++      '@lezer/common': 1.5.2
++      '@lezer/javascript': 1.5.4
++
++  '@codemirror/lang-json@6.0.2':
++    dependencies:
++      '@codemirror/language': 6.12.4
++      '@lezer/json': 1.0.3
++
++  '@codemirror/lang-markdown@6.5.2':
++    dependencies:
++      '@codemirror/autocomplete': 6.20.3
++      '@codemirror/lang-html': 6.4.12
++      '@codemirror/language': 6.12.4
++      '@codemirror/state': 6.7.1
++      '@codemirror/view': 6.43.8
++      '@lezer/common': 1.5.2
++      '@lezer/markdown': 1.7.2
++
++  '@codemirror/lang-python@6.2.1':
++    dependencies:
++      '@codemirror/autocomplete': 6.20.3
++      '@codemirror/language': 6.12.4
++      '@codemirror/state': 6.7.1
++      '@lezer/common': 1.5.2
++      '@lezer/python': 1.1.19
 +
 +  '@codemirror/language@6.12.4':
 +    dependencies:
@@ -8184,26 +9922,61 @@ index 1490a0f9f7..c30b7da276 100644
    '@connectrpc/connect-web@2.0.0-rc.3(@bufbuild/protobuf@2.13.0)(@connectrpc/connect@2.0.0-rc.3(@bufbuild/protobuf@2.13.0))':
      dependencies:
        '@bufbuild/protobuf': 2.13.0
-@@ -15432,6 +15723,18 @@ snapshots:
+@@ -15432,6 +15830,53 @@ snapshots:
    '@koromix/koffi-win32-x64@3.1.1':
      optional: true
  
 +  '@lezer/common@1.5.2': {}
 +
++  '@lezer/css@1.3.6':
++    dependencies:
++      '@lezer/common': 1.5.2
++      '@lezer/highlight': 1.2.3
++      '@lezer/lr': 1.4.10
++
 +  '@lezer/highlight@1.2.3':
 +    dependencies:
 +      '@lezer/common': 1.5.2
 +
++  '@lezer/html@1.3.13':
++    dependencies:
++      '@lezer/common': 1.5.2
++      '@lezer/highlight': 1.2.3
++      '@lezer/lr': 1.4.10
++
++  '@lezer/javascript@1.5.4':
++    dependencies:
++      '@lezer/common': 1.5.2
++      '@lezer/highlight': 1.2.3
++      '@lezer/lr': 1.4.10
++
++  '@lezer/json@1.0.3':
++    dependencies:
++      '@lezer/common': 1.5.2
++      '@lezer/highlight': 1.2.3
++      '@lezer/lr': 1.4.10
++
 +  '@lezer/lr@1.4.10':
 +    dependencies:
 +      '@lezer/common': 1.5.2
++
++  '@lezer/markdown@1.7.2':
++    dependencies:
++      '@lezer/common': 1.5.2
++      '@lezer/highlight': 1.2.3
++
++  '@lezer/python@1.1.19':
++    dependencies:
++      '@lezer/common': 1.5.2
++      '@lezer/highlight': 1.2.3
++      '@lezer/lr': 1.4.10
 +
 +  '@marijn/find-cluster-break@1.0.3': {}
 +
    '@mermaid-js/mermaid-mindmap@9.3.0':
      dependencies:
        '@braintree/sanitize-url': 6.0.4
-@@ -15859,6 +16162,19 @@ snapshots:
+@@ -15859,6 +16304,19 @@ snapshots:
      dependencies:
        quansync: 1.0.0
  
@@ -8223,7 +9996,7 @@ index 1490a0f9f7..c30b7da276 100644
    '@rolldown/binding-android-arm64@1.0.3':
      optional: true
  
-@@ -16702,6 +17018,8 @@ snapshots:
+@@ -16702,6 +17160,8 @@ snapshots:
      transitivePeerDependencies:
        - typescript
  
@@ -8232,7 +10005,7 @@ index 1490a0f9f7..c30b7da276 100644
    '@yarnpkg/cli-dist@4.17.1': {}
  
    accepts@2.0.0:
-@@ -16884,6 +17202,16 @@ snapshots:
+@@ -16884,6 +17344,16 @@ snapshots:
  
    clsx@2.1.1: {}
  
@@ -8249,7 +10022,7 @@ index 1490a0f9f7..c30b7da276 100644
    color-convert@2.0.1:
      dependencies:
        color-name: 1.1.4
-@@ -16931,6 +17259,8 @@ snapshots:
+@@ -16931,6 +17401,8 @@ snapshots:
      dependencies:
        layout-base: 2.0.1
  
@@ -8258,7 +10031,7 @@ index 1490a0f9f7..c30b7da276 100644
    cross-spawn@7.0.6:
      dependencies:
        path-key: 3.1.1
-@@ -18266,7 +18596,7 @@ snapshots:
+@@ -18266,7 +18738,7 @@ snapshots:
  
    mdn-data@2.27.1: {}
  
@@ -8267,7 +10040,7 @@ index 1490a0f9f7..c30b7da276 100644
  
    merge-descriptors@2.0.0: {}
  
-@@ -19258,6 +19588,8 @@ snapshots:
+@@ -19258,6 +19730,8 @@ snapshots:
      dependencies:
        anynum: 1.0.0
  
@@ -8276,7 +10049,7 @@ index 1490a0f9f7..c30b7da276 100644
    stylis@4.4.0: {}
  
    superjson@2.2.6:
-@@ -19371,7 +19703,7 @@ snapshots:
+@@ -19371,7 +19845,7 @@ snapshots:
    type-is@2.1.0:
      dependencies:
        content-type: 2.0.0
@@ -8285,7 +10058,7 @@ index 1490a0f9f7..c30b7da276 100644
        mime-types: 3.0.2
  
    typebox@1.1.38: {}
-@@ -19726,6 +20058,8 @@ snapshots:
+@@ -19726,6 +20200,8 @@ snapshots:
      optionalDependencies:
        typescript: 6.0.3
  

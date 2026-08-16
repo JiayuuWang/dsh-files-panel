@@ -21,12 +21,12 @@ The plugin is not a standalone npm install. It is a set of packages inside the `
 In the `deepseek-harness` repository root, at base commit `47f943859b`:
 
 ```bash
-git apply ../dsh-files-panel/patch/c9-pane-layout-fix.dsh.diff
+git apply ../dsh-files-panel/patch/c10-persist-key-fix.dsh.diff
 pnpm install
 pnpm run build
 ```
 
-> Use the **latest** checkpoint patch (`c9-…`). It is cumulative: it includes C1–C8, so there is no need to apply the earlier patches one by one. (The older `c1…c8` files are kept only as the milestone history.)
+> Use the **latest** checkpoint patch (`c10-…`). It is cumulative: it includes C1–C9, so there is no need to apply the earlier patches one by one. (The older `c1…c9` files are kept only as the milestone history.)
 
 ## 3. Run
 
