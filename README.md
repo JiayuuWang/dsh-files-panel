@@ -28,6 +28,7 @@ docs/       设计记录
 | C3 | `47f943859b` (master) | [patch/c3-edit-save-and-session-event.dsh.diff](patch/c3-edit-save-and-session-event.dsh.diff) | CodeMirror 编辑保存 + 冲突检测 + `user/file-edit` 会话事件 |
 | C4 | `47f943859b` (master) | [patch/c4-vim-emacs-keymaps.dsh.diff](patch/c4-vim-emacs-keymaps.dsh.diff) | vim / emacs 键位切换 |
 | C5 | `47f943859b` (master) | [patch/c5-details-open-affordance.dsh.diff](patch/c5-details-open-affordance.dsh.diff) | **最终累积补丁(含 C1~C4)**:补上详情面板打开入口(工具行「详情」药丸 → 面板) |
+| C6 | `47f943859b` (master) | [patch/c6-terminal.dsh.diff](patch/c6-terminal.dsh.diff) | **累积补丁(含 C1~C5)**:Terminal 标签页(web-terminal 能力缝 + `terminal.*` wire 域 + xterm.js 客户端,平台自适应 pwsh/bash) |
 
 ## 状态
 
@@ -37,4 +38,6 @@ docs/       设计记录
 - [x] 阶段二(C3):`files.write` + CodeMirror 编辑保存 + 冲突检测 + `user/file-edit` 会话事件与模型通知
 - [x] 阶段三(C4):vim / emacs 键位(CodeMirror keymap,工具栏切换,保留缓冲)
 - [x] 修复(C5):详情面板打开入口——工具行展开后点「详情」药丸打开面板(修复面板无入口无法体验的问题)
-- [ ] (可选后续)真交互式终端(独立评估,不在本目标范围)
+- [x] Terminal(C6):交互式终端标签页(与 Chat/Trajectory 并列)——web-terminal 能力缝 + `terminal.*` wire 域 + xterm.js 客户端;平台自适应 pwsh/bash;轮询式读取、切标签重挂载、重启按钮
+- [ ] (下一阶段)右上角 Toggle explorer 按钮 + 文件树图标 + 语法高亮
+- [ ] (下一阶段)tmux 式分屏(任意 pane 递归 split right/down、全屏、分隔条可拖动)
