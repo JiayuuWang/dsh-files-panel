@@ -65,6 +65,10 @@ dsh Web GUI 增加一个右侧可伸缩"文件区"面板:显示当前工作区�
   - apiproxy `files` 域(`files.list` / `files.read`)+ 6 个封闭错误码 + handler/client/fixture 全链
   - web-app bundle 挂载行、tsconfig 注册面、Agent Note(`2026-08-16-workspace-files-capability-seam`)
   - 验证:17 个新测试 + 524 个受影响套件全绿、repo typecheck、每文件 100% 覆盖率、cordis/config/note/README/pairing 门禁全过
-- [ ] C2:ui-files 面板 + 文件树只读
+- [x] **C2(2026-08-16)**:ui-files 面板 + 文件树只读
+  - ui-conversation 的 details 面板加「工具 | 文件」双 tab(新子槽 `conversation.details.files`,布局零改动)
+  - 新包 `packages/client/ui-files`(dsh.client):工作区根解析(useWorkspaces)→ `files.list` 懒加载树(目录在前/截断标记)→ `files.read` 只读预览;不注册 store,直接驱动 `ctx.connection.api`
+  - wire 类型出口链:connection/client api.ts + index.ts + remotes/client 增加 FileEntry/FileListing/FileContent
+  - 验证:14 个新测试 + 受影响面 539 全绿、repo typecheck、每文件 100% 覆盖率、client-catalog/slot-catalog 重生成、全部门禁过;test:gui 的 2 个动态导入计时测试为机器负载抖动(隔离复跑 105/105 通过)
 - [ ] C3:编辑保存 + `user/file-edit` 会话事件
 - [ ] C4:vim/emacs keymap

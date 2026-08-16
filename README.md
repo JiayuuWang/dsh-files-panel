@@ -24,11 +24,12 @@ docs/       设计记录
 | 检查点 | base commit | 补丁 | 内容 |
 |---|---|---|---|
 | C1 | `47f943859b` (master) | [patch/c1-workspace-files-seam.dsh.diff](patch/c1-workspace-files-seam.dsh.diff) | workspace-files 能力缝 + files wire 域 + 测试与门禁 |
+| C2 | `47f943859b` (master) | [patch/c2-files-panel-and-wire.dsh.diff](patch/c2-files-panel-and-wire.dsh.diff) | **累积补丁(含 C1)**:ui-files 文件面板(details 双 tab + 文件树 + 只读预览) |
 
 ## 状态
 
 - [x] 规划完成(阶段一~三)
 - [x] 阶段一(主机侧 C1):workspace-files 能力缝 + files wire(`files.list` / `files.read`)
-- [ ] 阶段一(客户端 C2):ui-files 面板 + 文件树 + 只读预览
+- [x] 阶段一(客户端 C2):ui-files 面板(details 面板「工具 | 文件」tab)+ 文件树 + 只读预览
 - [ ] 阶段二:Monaco 编辑 + 保存 + `user/file-edit` 会话事件
 - [ ] 阶段三:vim/emacs 键位(CodeMirror keymap);真交互式终端(可选,独立评估)
