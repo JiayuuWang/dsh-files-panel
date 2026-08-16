@@ -25,12 +25,14 @@ docs/       设计记录
 |---|---|---|---|
 | C1 | `47f943859b` (master) | [patch/c1-workspace-files-seam.dsh.diff](patch/c1-workspace-files-seam.dsh.diff) | workspace-files 能力缝 + files wire 域 + 测试与门禁 |
 | C2 | `47f943859b` (master) | [patch/c2-files-panel-and-wire.dsh.diff](patch/c2-files-panel-and-wire.dsh.diff) | ui-files 文件面板(details 双 tab + 文件树 + 只读预览) |
-| C3 | `47f943859b` (master) | [patch/c3-edit-save-and-session-event.dsh.diff](patch/c3-edit-save-and-session-event.dsh.diff) | **累积补丁(含 C1+C2)**:CodeMirror 编辑保存 + 冲突检测 + `user/file-edit` 会话事件 |
+| C3 | `47f943859b` (master) | [patch/c3-edit-save-and-session-event.dsh.diff](patch/c3-edit-save-and-session-event.dsh.diff) | CodeMirror 编辑保存 + 冲突检测 + `user/file-edit` 会话事件 |
+| C4 | `47f943859b` (master) | [patch/c4-vim-emacs-keymaps.dsh.diff](patch/c4-vim-emacs-keymaps.dsh.diff) | **最终累积补丁(含 C1+C2+C3)**:vim / emacs 键位切换 |
 
 ## 状态
 
 - [x] 规划完成(阶段一~三)
 - [x] 阶段一(主机侧 C1):workspace-files 能力缝 + files wire(`files.list` / `files.read`)
 - [x] 阶段一(客户端 C2):ui-files 面板(details 面板「工具 | 文件」tab)+ 文件树 + 只读预览
-- [x] 阶段二(C3):`files.write` + CodeMirror 编辑保存(按钮 / Ctrl+S)+ 版本守卫冲突检测 + `user/file-edit` 会话事件与模型通知(agent.inject)
-- [ ] 阶段三:vim/emacs 键位(CodeMirror keymap);真交互式终端(可选,独立评估)
+- [x] 阶段二(C3):`files.write` + CodeMirror 编辑保存 + 冲突检测 + `user/file-edit` 会话事件与模型通知
+- [x] 阶段三(C4):vim / emacs 键位(CodeMirror keymap,工具栏切换,保留缓冲)
+- [ ] (可选后续)真交互式终端(独立评估,不在本目标范围)

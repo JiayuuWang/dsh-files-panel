@@ -76,4 +76,8 @@ dsh Web GUI 增加一个右侧可伸缩"文件区"面板:显示当前工作区�
   - 模型可见性:`agent.inject()` system-reminder 通知(下次 pre-step 认领并记为 user/message)——model-visible ⟺ logged
   - 编辑器:**CodeMirror 替代 Monaco**(单文件 client bundle 无 worker 管线,Agent Note 记录该取舍);保存按钮/Ctrl+S、脏标记、`files-stale-version` 冲突横幅 + 重新载入
   - 验证:主机 31 + 客户端 25 新测试,受影响面 430 全绿、repo typecheck、双树每文件 100% 覆盖、persistence/doc-graphs/cordis 目录重生成、全门禁过;test:gui 的 3 个时序测试为机器负载抖动(隔离 42/42 通过)
-- [ ] C4:vim/emacs keymap
+- [x] **C4(2026-08-16)**:vim/emacs keymap(最终检查点)
+  - EditorPane 增加 `keymap` prop:`@replit/codemirror-vim` / `@replit/codemirror-emacs` 扩展组合;默认键位零额外扩展
+  - FilesPanel 工具栏键位选择器(默认 | Vim | Emacs);切换键位重挂载编辑器并保留缓冲与脏状态;键位是面板私有查看状态(按会话重置)
+  - 验证:ui-files 28/28 + 受影响面 556 全绿、repo typecheck、每文件 100% 覆盖、note/README/pairing 门禁过;test:gui 3 个时序测试为机器负载抖动(隔离 53/53 通过)
+- [ ] (可选)真交互式终端:独立评估,不在本目标范围
