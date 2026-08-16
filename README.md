@@ -1,23 +1,25 @@
 # dsh-files-panel
 
-DeepSeek Harness Web GUI 文件面板插件:在页面右侧(可伸缩)显示当前工作区文件树,支持审阅与手动编辑文件;编辑器计划支持 Monaco(类似 VS Code)以及 vim/emacs 键位。
+DeepSeek Harness Web GUI 插件:给 `dsh web` 页面加三项能力——**交互式 Terminal 标签页**、**文件资源管理器(树 + 图标 + 语法高亮编辑)**、**tmux 式分屏**。
 
-**私有开发仓库。** v1 开发基于 deepseek-harness 仓库内插件体系(需随 dsh 构建),设计说明与阶段计划见 [PLAN.md](PLAN.md)。
+**私有开发仓库。** v1 开发基于 deepseek-harness 仓库内插件体系(需随 dsh 构建)。
+
+> **使用说明(重点):** 详细的中英文安装/使用步骤见 **[docs/USAGE.md](docs/USAGE.md)**(中文见 [docs/USAGE.zh.md](docs/USAGE.zh.md))。
 
 ## 仓库结构
 
 ```
-patch/      每个检查点的完整 dsh.diff(相对 pinned 的 dsh base commit,含新包)
-docs/       设计记录
+patch/      每个检查点的完整 dsh.diff(相对 pinned 的 dsh base commit,含新包;最新一个即全部)
+docs/       中英文使用指南(USAGE.md / USAGE.zh.md)与设计记录
 ```
 
 ## 如何套用(给别人用)
 
-1. 准备一个 deepseek-harness checkout,checkout 到 `patch/` 中标注的 base commit;
-2. 在仓库根执行 `git apply patch/<checkpoint>.dsh.diff`(新包文件也包含在 diff 中);
-3. `pnpm install && pnpm run build`,`dsh web` 后刷新页面。
+1. 准备一个 deepseek-harness checkout,checkout 到 `patch/` 中标注的 base commit(`47f943859b`);
+2. 在仓库根执行 `git apply patch/<最新检查点>.dsh.diff`(新包文件也包含在 diff 中);
+3. `pnpm install && pnpm run build`,然后用 `pnpm dsh --profile web` 启动并刷新页面(**不要**用 `npx @deepseek-ai/dsh web`)。
 
-详细步骤随开发推进补充。
+详细步骤见 [docs/USAGE.zh.md](docs/USAGE.zh.md)。
 
 ## 检查点
 
@@ -31,6 +33,7 @@ docs/       设计记录
 | C6 | `47f943859b` (master) | [patch/c6-terminal.dsh.diff](patch/c6-terminal.dsh.diff) | **累积补丁(含 C1~C5)**:Terminal 标签页(web-terminal 能力缝 + `terminal.*` wire 域 + xterm.js 客户端,平台自适应 pwsh/bash) |
 | C7 | `47f943859b` (master) | [patch/c7-explorer-toggle-icons-highlight.dsh.diff](patch/c7-explorer-toggle-icons-highlight.dsh.diff) | **累积补丁(含 C1~C6)**:右上角 Toggle explorer 按钮 + 文件树单色图标 + CodeMirror 语法高亮 |
 | C8 | `47f943859b` (master) | [patch/c8-split-pane-view-layout.dsh.diff](patch/c8-split-pane-view-layout.dsh.diff) | **累积补丁(含 C1~C7)**:tmux 式分屏——递归 pane 树(split right/down)、每 pane 全屏、可拖分隔条 |
+| C9 | `47f943859b` (master) | [patch/c9-pane-layout-fix.dsh.diff](patch/c9-pane-layout-fix.dsh.diff) | **累积补丁(含 C1~C8,最新)**:修复分屏下对话被压缩/输入框置顶——视图改为自持滚动 |
 
 ## 状态
 
@@ -43,3 +46,4 @@ docs/       设计记录
 - [x] Terminal(C6):交互式终端标签页(与 Chat/Trajectory 并列)——web-terminal 能力缝 + `terminal.*` wire 域 + xterm.js 客户端;平台自适应 pwsh/bash;轮询式读取、切标签重挂载、重启按钮
 - [x] Explorer(C7):右上角 Toggle explorer 按钮 + 文件树单色图标 + CodeMirror 语法高亮(按文件名探测语言)
 - [x] 分屏(C8):tmux 式分屏——递归 pane 树(split right/down)、每 pane 全屏/关闭、分隔条可拖动;头部标签环作用于聚焦 pane;布局按会话持久化
+- [x] 修复(C9):分屏布局——对话被压缩、输入框置顶的问题(视图改为自持滚动,复用「composer overlay」模型)
