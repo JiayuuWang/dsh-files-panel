@@ -35,7 +35,8 @@ docs/       中英文使用指南(USAGE.md / USAGE.zh.md)与设计记录
 | C8 | `47f943859b` (master) | [patch/c8-split-pane-view-layout.dsh.diff](patch/c8-split-pane-view-layout.dsh.diff) | **累积补丁(含 C1~C7)**:tmux 式分屏——递归 pane 树(split right/down)、每 pane 全屏、可拖分隔条 |
 | C9 | `47f943859b` (master) | [patch/c9-pane-layout-fix.dsh.diff](patch/c9-pane-layout-fix.dsh.diff) | **累积补丁(含 C1~C8)**:修复分屏下对话被压缩/输入框置顶——视图改为自持滚动 | 
 | C10 | `47f943859b` (master) | [patch/c10-persist-key-fix.dsh.diff](patch/c10-persist-key-fix.dsh.diff) | **累积补丁(含 C1~C9)**:真正的根因修复——本地持久化 key 从 `dsh.conversation.chat` 升到 `.v2`,丢弃旧结构坏数据,修复「硬刷新/重启仍不生效」 |
-| C11 | `47f943859b` (master) | [patch/c11-pane-terminal-fixes.dsh.diff](patch/c11-pane-terminal-fixes.dsh.diff) | **累积补丁(含 C1~C10,最新)**:分屏自适应+可拖拽(flex 修复)、终端 Shell 选择(pwsh/cmd/bash/zsh/sh)、每窗格独立终端、分屏继承源视图(Trajectory/终端) |
+| C11 | `47f943859b` (master) | [patch/c11-pane-terminal-fixes.dsh.diff](patch/c11-pane-terminal-fixes.dsh.diff) | **累积补丁(含 C1~C10)**:分屏自适应+可拖拽(flex 修复)、终端 Shell 选择(pwsh/cmd/bash/zsh/sh)、每窗格独立终端、分屏继承源视图(Trajectory/终端) |
+| C12 | `47f943859b` (master) | [patch/c12-cross-session-panes.dsh.diff](patch/c12-cross-session-panes.dsh.diff) | **累积补丁(含 C1~C11,最新)**:跨会话分屏——Chat 窗格 split 等同于 New Session,两会话并排,分屏布局全局持久化,标题/输入框跟随聚焦窗格 |
 
 ## 状态
 
@@ -51,4 +52,4 @@ docs/       中英文使用指南(USAGE.md / USAGE.zh.md)与设计记录
 - [x] 修复(C9):分屏布局——对话被压缩、输入框置顶的问题(视图改为自持滚动,复用「composer overlay」模型)
 - [x] 修复(C10):真正的根因——本地持久化 key 升到 `.v2` 丢弃旧结构坏数据(旧状态缺 `panes` 字段导致 PaneTree 崩溃,只剩输入框)
 - [x] 修复(C11):分屏自适应+可拖拽(flex-basis 修复)、终端 Shell 选择、每窗格独立终端(terminalId 键控)、分屏继承源视图(Trajectory→trajectory、Terminal→新终端)
-- [ ] Chat split → New Session(跨会话分屏,框架级,下一检查点)
+- [x] 跨会话分屏(C12):Chat 窗格 split → New Session(新建会话并排),分屏布局全局持久化,标题/输入框跟随聚焦窗格(框架新增 `provideInfoOf` + `SessionBoundary`)
