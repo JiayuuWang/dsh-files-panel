@@ -1,0 +1,42 @@
+{
+  "name": "@jiayuw/dsh-files-panel",
+  "version": "0.1.0",
+  "description": "One-command installer for the dsh-files-panel plugin: interactive terminal, workspace file explorer, and tmux-style split panes for the DeepSeek Harness web GUI (dsh web). Applies the plugin patch to a deepseek-harness checkout and builds it.",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "terminal",
+    "file-explorer",
+    "split-panes"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "bin/dsh-files-panel.js",
+  "bin": {
+    "dsh-files-panel": "bin/dsh-files-panel.js"
+  },
+  "files": [
+    "bin",
+    "patch",
+    "README.md",
+    "install.ps1",
+    "install.sh"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "prepack": "node -e \"const fs=require('fs');const p='patch/dsh-files-panel.patch';if(!fs.existsSync(p)){console.error('missing '+p);process.exit(1)}\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JiayuuWang/dsh-files-panel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JiayuuWang/dsh-files-panel/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
