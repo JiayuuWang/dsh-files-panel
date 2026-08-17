@@ -1,5 +1,7 @@
 # dsh-files-panel
 
+![Layout overview](assets/layout.png)
+
 **Interactive terminal, workspace file browser, and tmux-style split panes for the DeepSeek Harness web GUI (`dsh web`).**
 
 This plugin extends the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) browser surface with three features:
@@ -10,9 +12,6 @@ This plugin extends the [DeepSeek Harness](https://github.com/deepseek-ai/deepse
 | **File browser** | A workspace file tree with per-type icons and syntax-highlighted editing (save with conflict detection, Vim/Emacs keymaps, drag-resizable tree/editor split). |
 | **Split panes** | tmux-style panes: recursive split right/down, per-pane fullscreen, draggable dividers, sizes that follow the window. Splitting a Chat pane starts a **new session** side by side, and **each chat pane gets its own input box** sized with the pane. |
 
-## Screenshot
-
-![Layout overview](assets/layout.png)
 
 ## Install
 
