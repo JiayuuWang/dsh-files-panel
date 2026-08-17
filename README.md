@@ -10,6 +10,10 @@ This plugin extends the [DeepSeek Harness](https://github.com/deepseek-ai/deepse
 | **File browser** | A workspace file tree with per-type icons and syntax-highlighted editing (save with conflict detection, Vim/Emacs keymaps, drag-resizable tree/editor split). |
 | **Split panes** | tmux-style panes: recursive split right/down, per-pane fullscreen, draggable dividers, sizes that follow the window. Splitting a Chat pane starts a **new session** side by side, and **each chat pane gets its own input box** sized with the pane. |
 
+## Screenshot
+
+![Layout overview](assets/layout.png)
+
 ## Install
 
 The plugin is a set of packages inside the `deepseek-harness` monorepo. Apply the single cumulative patch to a clean checkout, then build:
@@ -37,6 +41,7 @@ Full usage: [docs/USAGE.md](docs/USAGE.md) · [docs/USAGE.zh.md](docs/USAGE.zh.m
 ```
 patch/dsh-files-panel.patch   the single cumulative patch (everything above)
 src/packages/                 the plugin source, mirroring the monorepo packages/ layout
+assets/layout.png             the layout screenshot shown above
 ```
 
 `src/packages/` mirrors the harness monorepo paths, so each file's location tells you where it belongs:
