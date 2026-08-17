@@ -38,6 +38,7 @@ Open the printed URL (default `http://127.0.0.1:3080`) and hard-refresh `Ctrl+F5
 1. Click the **folder icon** in the session header (top right).
 2. The right panel shows the workspace file tree, each row with a type icon.
 3. Click a file to open it with syntax highlighting; edit and press **Save** (`Ctrl/Cmd+S`). A version conflict prompts you to reload. Keymaps can switch between Default / Vim / Emacs.
+4. Drag the **6px divider** between the tree and the editor to resize the two halves (each side keeps ≥ 20%).
 
 ## Split panes
 
@@ -51,6 +52,9 @@ Each pane has a thin toolbar:
 | **✕** | close this pane |
 
 - Splitting inherits the source view: a **Trajectory** pane duplicates the trajectory; a **Terminal** pane opens a **new terminal**; a **Chat** pane starts a **new session** shown in the new pane — two sessions side by side, each independently usable.
+- **Each chat pane has its own input box** at its bottom, bound to that pane's session and sized with the pane. The shared bottom composer hides while a split is active.
+- Closing a pane re-flows the remaining panes to fill the whole grid.
+- Cross-session panes show their session title in the pane toolbar (e.g. `My session · Chat`).
 - Focus a pane, then click the top tab (Chat / Trajectory / Terminal) to switch that pane's view.
 - Drag the dividers to resize (each side keeps ≥ 10%); panes track the window size.
 - Splits are recursive and the layout persists across reloads; the title bar and composer follow the focused pane.

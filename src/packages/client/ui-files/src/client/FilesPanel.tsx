@@ -5,8 +5,8 @@
 // editor buffer, save/conflict state), which is allowed to reset with the
 // panel's per-session remount.
 
-import { useEffect, useState } from 'react'
-import type { KeyboardEvent, ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import clsx from 'clsx'
 import type { FileEntry, RpcError, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { FilesPanelProps } from './contract.ts'
@@ -53,6 +53,10 @@ export function partitionEntries(entries: readonly FileEntry[]): { directories: 
 /** Indent depth per nesting level, in px. */
 const INDENT = 14
 
+/** Tree share of the column the drag may not cross (percent). */
+const MIN_TREE_SHARE = 20
+const MAX_TREE_SHARE = 80
+
 export function FilesPanel({ sessionId, useWorkspaces, listDirectory, readFile, writeFile, t }: FilesPanelProps) {
   const rootPath = useWorkspaces(list => list.items.find(workspace => workspace.sessionIds.includes(sessionId))?.path ?? null)
   const [levels, setLevels] = useState<Record<string, Level>>({})
@@ -73,6 +77,30 @@ export function FilesPanel({ sessionId, useWorkspaces, listDirectory, readFile, 
   // Keymap choice is panel-private viewing state (resets per session); the
   // editor remounts on switch, keeping the current buffer.
   const [keymap, setKeymap] = useState<EditorKeymap>('default')
+  // Tree share of the column (percent): the draggable boundary between the
+  // file tree and the editor keeps the ratio on panel resize.
+  const [treeShare, setTreeShare] = useState(45)
+  const dividerRef = useRef<HTMLDivElement | null>(null)
+  const onDividerPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    event.preventDefault()
+    const parent = dividerRef.current?.parentElement
+    /* v8 ignore next -- the divider renders inside the panel root; a null parent requires an unmount race no test can schedule deterministically. */
+    if (parent === null || parent === undefined) return
+    const startY = event.clientY
+    const extent = parent.clientHeight
+    const startShare = treeShare
+    const move = (ev: PointerEvent): void => {
+      if (extent === 0) return
+      const share = startShare + ((ev.clientY - startY) / extent) * 100
+      setTreeShare(Math.max(MIN_TREE_SHARE, Math.min(MAX_TREE_SHARE, share)))
+    }
+    const up = (): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
 
   const loadLevel = async (path: string): Promise<void> => {
     setLevels(prev => ({ ...prev, [path]: loadingLevel() }))
@@ -230,14 +258,34 @@ export function FilesPanel({ sessionId, useWorkspaces, listDirectory, readFile, 
 
   return (
     <div className={css.root}>
-      <div className={css.tree}>
+      <div
+        className={css.tree}
+        // flex-basis:0 makes each side's main size a pure function of its
+        // grow share, so the divider drag resizes exactly and the split keeps
+        // its ratio when the panel resizes (same rule as the pane grid).
+        style={{ flexGrow: treeShare, flexShrink: 1, flexBasis: 0 }}
+      >
         <div className={css.treeHeader}>
           <span className={css.treeTitle}>{rootPath}</span>
           <button type="button" className={css.refresh} onClick={() => { void loadLevel(rootPath) }}>{t('tree.refresh')}</button>
         </div>
         <div className={css.treeBody}>{treeBody()}</div>
       </div>
-      <div className={css.preview} onKeyDown={onPreviewKeyDown}>
+      <div
+        ref={dividerRef}
+        className={css.divider}
+        role="separator"
+        aria-orientation="horizontal"
+        aria-valuemin={MIN_TREE_SHARE}
+        aria-valuemax={MAX_TREE_SHARE}
+        aria-valuenow={Math.round(treeShare)}
+        onPointerDown={onDividerPointerDown}
+      />
+      <div
+        className={css.preview}
+        style={{ flexGrow: 100 - treeShare, flexShrink: 1, flexBasis: 0 }}
+        onKeyDown={onPreviewKeyDown}
+      >
         {selected !== null && preview !== null
           ? (
             <>

@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import clsx from 'clsx'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PaneLeaf, PaneNode, PaneSplit } from './contract/panes.ts'
 import type { ViewTab } from './contract/views.ts'
 import { findLeaf } from './pane-tree.ts'
@@ -23,13 +24,22 @@ interface PaneTreeProps {
   onClose: (paneId: string) => void
   onFullscreen: (paneId: string) => void
   onResize: (splitId: string, sizes: number[]) => void
+  /** The session this ConversationSession body is bound to (its own panes show no title). */
+  currentSessionId: SessionId
+  /** Resolve one session's display title for a cross-session pane's chrome label. */
+  titleOf: (sessionId: SessionId) => string | undefined
   t: TranslateNS<'conversation'>
 }
 
 /** One leaf pane: the chrome bar (focus, split, fullscreen, close) above its view. */
 function LeafPane(props: PaneTreeProps & { leaf: PaneLeaf }) {
-  const { leaf, focusedPaneId, fullscreenPaneId, tabs, renderView, onFocus, onSplit, onClose, onFullscreen, t } = props
+  const { leaf, focusedPaneId, fullscreenPaneId, tabs, renderView, onFocus, onSplit, onClose, onFullscreen, currentSessionId, titleOf, t } = props
   const { paneId, viewId } = leaf
+  // A cross-session pane names its session so the split stays navigable: the
+  // header above only titles the current session, and every other leaf would
+  // otherwise read as the same "Chat"/"Trajectory"/"Terminal" chrome.
+  const viewLabel = tabs.find(tab => tab.id === viewId)?.label ?? viewId
+  const sessionTitle = leaf.sessionId === currentSessionId ? undefined : titleOf(leaf.sessionId)
   return (
     <section
       className={clsx(css.pane, focusedPaneId === paneId && css.focused)}
@@ -37,7 +47,11 @@ function LeafPane(props: PaneTreeProps & { leaf: PaneLeaf }) {
       onPointerDown={() => { onFocus(paneId) }}
     >
       <div className={css.chrome}>
-        <span className={css.viewLabel}>{tabs.find(tab => tab.id === viewId)?.label ?? viewId}</span>
+        <span className={css.viewLabel} title={sessionTitle}>
+          {sessionTitle === undefined || sessionTitle === ''
+            ? viewLabel
+            : `${sessionTitle} · ${viewLabel}`}
+        </span>
         <div className={css.chromeActions}>
           <button type="button" className={css.chromeButton} aria-label={t('pane.splitRight')} title={t('pane.splitRight')} onClick={() => { onSplit(paneId, 'row') }}>⫞</button>
           <button type="button" className={css.chromeButton} aria-label={t('pane.splitDown')} title={t('pane.splitDown')} onClick={() => { onSplit(paneId, 'column') }}>⫟</button>

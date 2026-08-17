@@ -172,10 +172,14 @@ export function ConversationRoot({
   )
 
   const phase = settling ? 'settling' : hero ? 'hero' : 'active'
+  // A split hands the composer bar to each chat pane (rendered per-pane by the
+  // session body); the shared seat keeps only the takeover chain — question /
+  // approval cards must not vanish when the user splits, but the bar would
+  // duplicate every pane's own copy.
   const composer = renderSlotChain(
     'conversation.composer',
     { interactions: pending, session },
-    { fallback: composerBar, overlay: true },
+    { fallback: splitActive ? null : composerBar, overlay: true },
   )
 
   // Sticky wraps the whole chain output (fallback + elected overlay), not
@@ -192,7 +196,12 @@ export function ConversationRoot({
     <div className={css.root} data-phase={phase}>
       {renderSlot('conversation.session.header', {})}
       <div className={css.scrollBody} data-conversation-scroll="">
-        {renderSlot('conversation.session', {})}
+        {renderSlot('conversation.session', {
+          // The composer-bar render handed to chat leaves so each pane in a
+          // split mounts its own input (bound to the pane's session); the
+          // single-pane case keeps the shared seat below.
+          renderComposerBar: owner => renderSlot('conversation.composer.bar', owner),
+        })}
         {composerSeat}
       </div>
     </div>

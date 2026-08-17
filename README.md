@@ -7,8 +7,8 @@ This plugin extends the [DeepSeek Harness](https://github.com/deepseek-ai/deepse
 | Feature | What you get |
 |---|---|
 | **Terminal** | A real interactive terminal tab beside Chat/Trajectory. Per-pane PTYs with a shell picker (Windows: `pwsh` / `cmd`; Linux/macOS: `bash` / `zsh` / `sh`). |
-| **File browser** | A workspace file tree with per-type icons and syntax-highlighted editing (save with conflict detection, Vim/Emacs keymaps). |
-| **Split panes** | tmux-style panes: recursive split right/down, per-pane fullscreen, draggable dividers, sizes that follow the window. Splitting a Chat pane starts a **new session** side by side. |
+| **File browser** | A workspace file tree with per-type icons and syntax-highlighted editing (save with conflict detection, Vim/Emacs keymaps, drag-resizable tree/editor split). |
+| **Split panes** | tmux-style panes: recursive split right/down, per-pane fullscreen, draggable dividers, sizes that follow the window. Splitting a Chat pane starts a **new session** side by side, and **each chat pane gets its own input box** sized with the pane. |
 
 ## Install
 
@@ -28,7 +28,7 @@ Open the printed URL (default `http://127.0.0.1:3080`) and hard-refresh (`Ctrl+F
 
 - Open a session → the **Terminal** tab opens a live shell; the toolbar lets you pick the shell and restart it.
 - The **folder icon** in the session header opens the workspace file browser.
-- Each pane's thin toolbar has **⫞** split right, **⫟** split down, **⛶** fullscreen, **✕** close. Focus a pane, then click the top tab to switch its view (Chat / Trajectory / Terminal).
+- Each pane's thin toolbar has **⫞** split right, **⫟** split down, **⛶** fullscreen, **✕** close. Focus a pane, then click the top tab to switch its view (Chat / Trajectory / Terminal). A split chat pane has its own input box; closing a pane re-flows the rest to fill the grid.
 
 Full usage: [docs/USAGE.md](docs/USAGE.md) · [docs/USAGE.zh.md](docs/USAGE.zh.md)（中文）
 

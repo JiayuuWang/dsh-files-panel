@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-host-web-terminal-local",
-  "description": "Local subprocess backend of the web-terminal seam (platform shell PTY per session over ctx.subprocess)",
+  "description": "Local backend of the web-terminal seam (platform shell PTY per session over node-pty, Windows included)",
   "version": "0.1.0-rc.5",
   "publishConfig": {
     "access": "public"
@@ -34,9 +34,9 @@
   "dependencies": {
     "@deepseek-ai/dsh-host-web-terminal": "workspace:^",
     "@deepseek-ai/dsh-pwsh-local": "workspace:^",
-    "@deepseek-ai/dsh-subprocess": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
-    "@deepseek-ai/schemastery": "workspace:^"
+    "@deepseek-ai/schemastery": "workspace:^",
+    "node-pty": "^1.1.0"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-invariants": "workspace:^",

@@ -2,11 +2,12 @@
 
 import { useEffect, useSyncExternalStore } from 'react'
 import clsx from 'clsx'
+import type { ReactNode } from 'react'
 import type { SessionId, SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
-  ConversationSessionHeaderSlotProps, ConversationSessionSlotProps,
+  ComposerBarOwnerProps, ConversationSessionHeaderSlotProps, ConversationSessionSlotProps,
 } from '../contract/slots.ts'
-import { findLeaf, focusedLeaf, isSingle } from '../pane-tree.ts'
+import { findLeaf, findLeafBySession, firstLeaf, focusedLeaf, isSingle } from '../pane-tree.ts'
 import { PaneTree } from '../PaneTree.tsx'
 import css from './ConversationRoot.module.css'
 
@@ -130,6 +131,24 @@ export function ConversationSessionHeader({
 }
 
 /**
+ * The per-pane composer seat: one input bar per chat leaf inside a split,
+ * bound to the pane's session (the caller renders this inside the pane's
+ * SessionBoundary). The bar sits IN FLOW below the chat — the pane column
+ * collapses the chat's composer-clearance var to a fixed gap, so no height
+ * publication is needed: the chat shrinks as the draft grows.
+ */
+export function PaneComposer({ renderComposerBar }: {
+  /** The handed-down composer-bar render (see ConversationSessionOwnerProps). */
+  renderComposerBar: (owner: ComposerBarOwnerProps) => ReactNode
+}) {
+  return (
+    <div className={css.paneComposer} data-pane-composer="">
+      {renderComposerBar({ variant: 'composer' })}
+    </div>
+  )
+}
+
+/**
  * Renders the active Session view area as a recursive pane tree whose leaves
  * each bind their OWN session (cross-session panes): the current session's
  * leaves render inline, and every other leaf renders under a SessionBoundary.
@@ -137,8 +156,8 @@ export function ConversationSessionHeader({
  * @returns the pane grid, or null while no pane tree exists yet.
  */
 export function ConversationSession({
-  sessionId, useSession, useInput, inputActions, useStore, actions,
-  renderSlot, views, paneStore, newSessionFor, openSession,
+  sessionId, useSession, useSessions, useInput, inputActions, useStore, actions,
+  renderSlot, renderComposerBar, views, paneStore, newSessionFor, openSession,
   bindDraftMirror, releaseSessionImages, SessionBoundary, t,
 }: ConversationSessionProps) {
   useSyncExternalStore(views.subscribe, views.version)
@@ -150,6 +169,13 @@ export function ConversationSession({
   const storedDraft = useStore(s => s.draft)
   // `?? null`: persisted snapshots from before the inspect field rehydrate without it.
   const inspect = useStore(s => s.inspect ?? null)
+  // Cross-session pane chrome titles: resolve the leaf's session display title
+  // from the list so a split stays navigable (the header only titles the
+  // current session). The full snapshot is selected (stable reference between
+  // updates) — a fresh closure per evaluation would defeat the selector's
+  // Object.is comparison and re-render forever.
+  const sessionList = useSessions(s => s)
+  const titleOf = (id: SessionId): string | undefined => sessionList.byId[id]?.displayTitle
 
   useEffect(() => {
     if (inputState.draft === '' && storedDraft !== '') inputActions.setDraft(storedDraft)
@@ -172,11 +198,15 @@ export function ConversationSession({
   }, [panes, paneStore, sessionId])
 
   if (panes === null) return null
-  // The blank-session hero hides the body only for the single-pane case: a
-  // cross-session split must keep rendering even when the focused pane is a
-  // fresh blank session (chat split → new session), because sibling panes hold
-  // content. Single-pane blank stays the hero (workspace picker) as before.
-  if (blank && composerPhase === 'blank' && isSingle(panes)) return null
+  // The blank-session hero hides the body only for a single pane BOUND TO THE
+  // CURRENT blank session: a cross-session split must keep rendering even when
+  // the focused pane is a fresh blank session (chat split → new session),
+  // because sibling panes hold content — and a surviving single pane bound to
+  // another session holds content too, so it must not fall back to the hero.
+  if (blank && composerPhase === 'blank' && panes.kind === 'leaf' && panes.sessionId === sessionId) return null
+  // A split replaces the shared bottom composer with one bar per chat pane;
+  // the single-pane chat keeps the shared seat (handled by ConversationRoot).
+  const splitActive = !isSingle(panes)
   // The renderer always hands this entry a SessionBoundary because it declares
   // the session-scope 'conversation.view' child; the optional prop type only
   // keeps sibling entries' tests free of a stub.
@@ -197,9 +227,20 @@ export function ConversationSession({
             ...owner,
             ...(leaf.terminalId === undefined ? {} : { terminalId: leaf.terminalId }),
           }, { only: viewId })
+          // A split chat leaf mounts its OWN composer bar under the boundary
+          // below (cross-session leaves bind to their own input machine), so
+          // each pane gets an input copy that tracks the pane's size.
+          const body = viewId === 'chat' && splitActive && renderComposerBar !== undefined
+            ? (
+              <div className={css.paneBody}>
+                {view}
+                <PaneComposer renderComposerBar={renderComposerBar} />
+              </div>
+            )
+            : view
           return leaf.sessionId === sessionId
-            ? view
-            : <Boundary sessionId={leaf.sessionId}>{view}</Boundary>
+            ? body
+            : <Boundary sessionId={leaf.sessionId}>{body}</Boundary>
         }}
         onFocus={paneId => {
           paneStore.actions.setFocusedPane(paneId)
@@ -228,9 +269,25 @@ export function ConversationSession({
             doSplit(same)
           }
         }}
-        onClose={paneId => { paneStore.actions.closePane(paneId) }}
+        onClose={paneId => {
+          const leaf = findLeaf(panes, paneId)
+          paneStore.actions.closePane(paneId)
+          // Closing the pane bound to the current session orphans it (the
+          // header and shared composer follow the current session). Adopt a
+          // surviving pane's session so what is on screen keeps matching the
+          // chrome; the remaining pane then fills the grid on its own.
+          if (leaf !== undefined && leaf.sessionId === sessionId) {
+            const rest = paneStore.getSnapshot().panes
+            if (rest !== null && findLeafBySession(rest, sessionId) === undefined) {
+              const survivor = firstLeaf(rest)
+              if (survivor !== undefined) openSession(survivor.sessionId)
+            }
+          }
+        }}
         onFullscreen={paneId => { paneStore.actions.toggleFullscreen(paneId) }}
         onResize={(splitId, sizes) => { paneStore.actions.setPaneSizes(splitId, sizes) }}
+        currentSessionId={sessionId}
+        titleOf={titleOf}
         t={t}
       />
     </div>

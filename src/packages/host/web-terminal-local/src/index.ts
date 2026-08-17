@@ -1,22 +1,20 @@
 /**
- * Local subprocess backend of the web-terminal seam: interactive PTYs over the
- * subprocess terminal primitive, one per (session, terminalId), with the shell
- * selected by host platform and an optional explicit shell name. Output
- * streams raw — ANSI escapes intact — into a bounded scrollback the web
- * Terminal view reads by cursor; the backend only retains a scrollback tail.
- * Nothing renders on the host display; the backend serves the API gateway only.
+ * Local backend of the web-terminal seam: interactive PTYs spawned directly
+ * through node-pty (cross-platform — Windows shells included), one per
+ * (session, terminalId), with the shell selected by host platform and an
+ * optional explicit shell name. Output streams raw — ANSI escapes intact —
+ * into a bounded scrollback the web Terminal view reads by cursor; the backend
+ * only retains a scrollback tail. Nothing renders on the host display; the
+ * backend serves the API gateway only.
  * @module @deepseek-ai/dsh-host-web-terminal-local
  */
 
 import { Buffer } from 'node:buffer'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import * as nodePty from 'node-pty'
+import type { IPty, IPtyForkOptions } from 'node-pty'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {
-  SubprocessTerminalHandle,
-  SubprocessTerminalSignal,
-  SubprocessTerminalSpawnSpec,
-} from '@deepseek-ai/dsh-subprocess'
 import {
   WebTerminalService,
   type WebTerminalRead,
@@ -37,14 +35,11 @@ export interface Config {
   rows: number
   /** Retained scrollback byte bound. */
   scrollbackMaxBytes: number
-  /** TERM-to-KILL cleanup grace for the complete terminal session. */
-  disposeGraceMs: number
 }
 
 const DEFAULT_ROWS = 40
 const DEFAULT_COLS = 120
 const DEFAULT_SCROLLBACK_MAX_BYTES = 1024 * 1024
-const DEFAULT_DISPOSE_GRACE_MS = 3000
 
 /** Drop leading characters until the string fits `maxBytes` UTF-8 bytes. */
 function trimFront(text: string, maxBytes: number): string {
@@ -59,7 +54,7 @@ function trimFront(text: string, maxBytes: number): string {
   return chars.slice(start).join('')
 }
 
-/** One live PTY wrapping a provider-owned terminal process. */
+/** One live PTY wrapping a node-pty process (works on Windows too). */
 class LocalWebTerminalSession implements WebTerminalSession {
   readonly pid: number
   readonly cols: number
@@ -73,7 +68,7 @@ class LocalWebTerminalSession implements WebTerminalSession {
   constructor(
     readonly id: SessionId,
     readonly terminalId: string,
-    private readonly terminal: SubprocessTerminalHandle,
+    private readonly terminal: IPty,
     cols: number,
     rows: number,
     private readonly scrollbackMaxBytes: number,
@@ -82,11 +77,8 @@ class LocalWebTerminalSession implements WebTerminalSession {
     this.pid = terminal.pid
     this.cols = cols
     this.rows = rows
-    terminal.output.on('data', this.onData)
-    void terminal.done.then(
-      () => { this.exited = true },
-      () => { this.exited = true },
-    )
+    terminal.onData(this.onData)
+    terminal.onExit(() => { this.exited = true })
   }
 
   read(cursor: number): WebTerminalRead {
@@ -104,16 +96,21 @@ class LocalWebTerminalSession implements WebTerminalSession {
   }
 
   write(data: string): Promise<void> {
-    return this.terminal.write(data)
+    if (this.exited) return Promise.reject(new Error('web-terminal: shell has exited'))
+    this.terminal.write(data)
+    return Promise.resolve()
   }
 
   async signal(signal: WebTerminalSignal): Promise<void> {
-    await this.terminal.signalForeground(signal as SubprocessTerminalSignal)
+    // node-pty maps SIGINT/SIGTERM/SIGKILL on Windows; best-effort for the
+    // others — a web terminal mostly delivers Ctrl+C through the PTY input.
+    this.terminal.kill(signal)
   }
 
   close(): Promise<void> {
     if (this.closePromise !== undefined) return this.closePromise
-    const closing = this.terminal.terminate().then(() => {
+    const closing = Promise.resolve().then(() => {
+      if (!this.exited) this.terminal.kill()
       this.onClosed(this)
     }, (error: unknown) => {
       this.closePromise = undefined
@@ -123,8 +120,7 @@ class LocalWebTerminalSession implements WebTerminalSession {
     return closing
   }
 
-  private readonly onData = (chunk: Buffer | Uint8Array | string): void => {
-    const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
+  private readonly onData = (text: string): void => {
     if (text.length === 0) return
     this.totalChars += text.length
     this.scrollback = trimFront(this.scrollback + text, this.scrollbackMaxBytes)
@@ -137,17 +133,14 @@ function keyOf(sessionId: SessionId, terminalId: string): string {
   return `${sessionId}\u0000${terminalId}`
 }
 
-/** The `ctx.webTerminals` implementation over the subprocess terminal primitive. */
+/** The `ctx.webTerminals` implementation spawning node-pty terminals. */
 export default class LocalWebTerminalService extends WebTerminalService {
-  static inject = ['subprocess']
-
   static Config: z<Config> = z.object({
     shellPath: z.string().default('/bin/bash'),
     pwshPath: z.string(),
     cols: z.natural().default(DEFAULT_COLS),
     rows: z.natural().default(DEFAULT_ROWS),
     scrollbackMaxBytes: z.natural().default(DEFAULT_SCROLLBACK_MAX_BYTES),
-    disposeGraceMs: z.natural().default(DEFAULT_DISPOSE_GRACE_MS),
   })
 
   private readonly sessions = new Map<string, LocalWebTerminalSession>()
@@ -162,20 +155,20 @@ export default class LocalWebTerminalService extends WebTerminalService {
     const existing = this.sessions.get(key)
     if (existing !== undefined) return existing
     const { argv } = shellArgv(process.platform, this.config.shellPath, this.config.pwshPath, shell)
-    const spec: SubprocessTerminalSpawnSpec = {
-      argv,
-      cwd: cwd ?? process.cwd(),
+    const options: IPtyForkOptions = {
+      name: 'dumb',
       rows: this.config.rows,
       cols: this.config.cols,
-      graceMs: this.config.disposeGraceMs,
+      cwd: cwd ?? process.cwd(),
+      env: process.env,
     }
-    const terminal = await this.ctx.subprocess.spawnTerminal(spec)
+    const terminal = nodePty.spawn(argv[0]!, argv.slice(1), options)
     const session = new LocalWebTerminalSession(
       sessionId,
       terminalId,
       terminal,
-      spec.cols,
-      spec.rows,
+      this.config.cols,
+      this.config.rows,
       this.config.scrollbackMaxBytes,
       closed => { this.sessions.delete(keyOf(closed.id, closed.terminalId)) },
     )

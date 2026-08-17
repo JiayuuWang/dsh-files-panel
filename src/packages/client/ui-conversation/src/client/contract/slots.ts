@@ -42,7 +42,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * flow instead: `conversation.view` for a whole tab, the input regions for
      * composer chrome.
      */
-    'conversation.session': { kind: 'single'; scope: 'session' }
+    'conversation.session': { kind: 'single'; scope: 'session'; owner: ConversationSessionOwnerProps }
     /**
      * The strip above the session's scrollport: title, view tabs, and the
      * action row. Taking this seat means rendering all three yourself, and it
@@ -269,6 +269,18 @@ export interface ConversationSessionOwnerProps {
    * @returns the scrollport containing `view` and the sticky composer seat.
    */
   wrapActiveBody?: (view: ReactNode) => ReactNode
+  /**
+   * Mount one composer bar per chat leaf inside a split, bound to the leaf's
+   * session. ConversationRoot owns the `conversation.composer.bar` declaration
+   * and hands the render down here so the session body can place a copy inside
+   * each chat pane while the shared bottom seat is hidden (a split hides it —
+   * the panes' own bars replace it). The caller renders the result INSIDE the
+   * pane's SessionBoundary so a cross-session leaf binds to its own session's
+   * input machine.
+   * @param owner - the composer-bar owner share; the pane always passes `variant: 'composer'`.
+   * @returns the composer bar content for one chat pane.
+   */
+  renderComposerBar?: (owner: ComposerBarOwnerProps) => ReactNode
 }
 
 /** Header actions derive their state from the standard session/global kit. */

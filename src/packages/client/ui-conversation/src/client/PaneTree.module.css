@@ -24,7 +24,8 @@
   display: flex;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  /* No overflow clip here: the leaf pane inside clips its own content, and an
+     outer clip would also cut the pane's shadow and focus ring. */
 }
 
 .pane {
@@ -33,13 +34,22 @@
   min-width: 0;
   min-height: 0;
   flex-direction: column;
+  /* Pane windows keep a tight radius: rounded enough to read as layered
+     windows inside the app's rounded design language, small enough that a
+     blocky terminal grid or a code scroll never fights its corners. */
   border: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.25));
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
+  background: var(--dsw-alias-bg-base);
+  /* Subtle depth lifts the window off the canvas behind the grid. */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 .pane.focused {
   border-color: var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.8));
+  /* A 1px ring just outside the border makes the active window unmistakable
+     without the heavier glow a larger spread would smear. */
+  box-shadow: 0 0 0 1px var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.5));
 }
 
 .chrome {
@@ -48,14 +58,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.25));
+  /* A muted header strip separates the window title from its content, echoing
+     the conversation header above the grid. */
+  background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.06));
 }
 
 .viewLabel {
   font-size: 12px;
   line-height: 18px;
-  color: var(--dsw-alias-label-tertiary, #888);
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary, #aaa);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

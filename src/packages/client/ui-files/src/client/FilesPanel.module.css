@@ -11,7 +11,6 @@
 .tree {
   display: flex;
   flex-direction: column;
-  flex: 1 1 45%;
   min-height: 0;
 }
 
@@ -114,10 +113,24 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* Draggable boundary between the tree and the editor: dragging resizes the
+   tree's share of the column (the editor takes the rest). The preview keeps
+   its top border so the boundary stays visible through the transparent strip. */
+.divider {
+  flex: 0 0 auto;
+  height: 6px;
+  background: transparent;
+  cursor: row-resize;
+  z-index: 1;
+}
+
+.divider:hover {
+  background: var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.35));
+}
+
 .preview {
   display: flex;
   flex-direction: column;
-  flex: 1 1 55%;
   min-height: 0;
   border-top: 1px solid var(--dsw-alias-border-l2);
 }
