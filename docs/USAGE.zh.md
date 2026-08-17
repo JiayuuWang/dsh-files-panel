@@ -9,8 +9,23 @@
 
 ## 安装
 
+**一键安装(推荐)**——在插件仓库里运行安装器,传入 `deepseek-harness` 检出目录:
+
+```powershell
+# Windows PowerShell
+.\install.ps1 <deepseek-harness 检出目录>
+```
+
 ```bash
-# 在 deepseek-harness 仓库根目录
+# Linux / macOS / Git Bash
+./install.sh <deepseek-harness 检出目录>
+```
+
+安装器会校验检出目录、应用补丁(已应用则跳过)、执行 `pnpm install` 和 `pnpm run build`。
+
+**或者手动三步**——在 `deepseek-harness` 仓库根目录:
+
+```bash
 git apply path/to/dsh-files-panel.patch
 pnpm install
 pnpm run build

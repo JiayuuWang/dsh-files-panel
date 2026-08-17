@@ -9,8 +9,23 @@ This plugin adds an interactive **Terminal**, a workspace **file browser**, and 
 
 ## Install
 
+**One command (recommended)** — from this plugin checkout, pass your `deepseek-harness` checkout:
+
+```powershell
+# Windows PowerShell
+.\install.ps1 <path-to-deepseek-harness-checkout>
+```
+
 ```bash
-# from the deepseek-harness repo root
+# Linux / macOS / Git Bash
+./install.sh <path-to-deepseek-harness-checkout>
+```
+
+The installer validates the checkout, applies the patch (skipped when already applied), then runs `pnpm install` and `pnpm run build`.
+
+**Or manually**, from the `deepseek-harness` repo root:
+
+```bash
 git apply path/to/dsh-files-panel.patch
 pnpm install
 pnpm run build

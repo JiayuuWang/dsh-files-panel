@@ -15,7 +15,14 @@ This plugin extends the [DeepSeek Harness](https://github.com/deepseek-ai/deepse
 
 ## Install
 
-The plugin is a set of packages inside the `deepseek-harness` monorepo. Apply the single cumulative patch to a clean checkout, then build:
+The plugin is a set of packages inside the `deepseek-harness` monorepo. Apply the single cumulative patch to a clean checkout, then build — **one command**:
+
+```bash
+# Windows PowerShell:  .\install.ps1 <deepseek-harness checkout>
+# Linux/macOS/Git Bash: ./install.sh  <deepseek-harness checkout>
+```
+
+The installer validates the checkout, applies `patch/dsh-files-panel.patch` (skipped when already applied), then runs `pnpm install` and `pnpm run build`. Manually, that is:
 
 ```bash
 # in a deepseek-harness checkout at base commit 47f943859b
@@ -39,6 +46,7 @@ Full usage: [docs/USAGE.md](docs/USAGE.md) · [docs/USAGE.zh.md](docs/USAGE.zh.m
 
 ```
 patch/dsh-files-panel.patch   the single cumulative patch (everything above)
+install.ps1 / install.sh      one-command installer (apply + pnpm install + build)
 src/packages/                 the plugin source, mirroring the monorepo packages/ layout
 assets/layout.png             the layout screenshot shown above
 ```

@@ -1,0 +1,6 @@
+# The repo's canonical text form is LF, enforced at checkout too — the patch
+# file MUST stay LF or `git apply` (against the LF harness checkout) fails on
+# Windows, where core.autocrlf would otherwise convert it to CRLF.
+* text=auto eol=lf
+
+*.png binary
