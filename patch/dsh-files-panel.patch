@@ -370,6 +370,90 @@ index 0000000000..82dfe5a893
 +- `seam.spec.ts` 锚定注册身份与类型化错误。
 +- `ui-files` 的 apply 规格锚定席位注册与注入的 files.* 回调;组件规格用桩数据源驱动面板(根解析、带缓存重展开的懒加载、选中预览、列举/读取/保存错误渲染、截断标记、刷新、Ctrl/Meta+S、保存中守卫、保留缓冲的键位切换),编辑器规格驱动 mock 的 CodeMirror 缝(挂载/销毁/文档变更转发、默认/vim/emacs 键位组合)。
 +- 门禁:仓库 typecheck、`verify-cordis-config`、`verify-package-invariants`、`verify-client-catalog`(slot 目录)、`verify-persistence-catalog`(新 `user/file-edit` 事件)、`verify-doc-graphs`(缝的角色分类)、README 对的 `verify-translation-pairing`、新源码树的每文件 100% 覆盖率。
+diff --git a/.agents/notes/implemented/architecture/2026-08-17-split-pane-composers-and-files-resize.md b/.agents/notes/implemented/architecture/2026-08-17-split-pane-composers-and-files-resize.md
+new file mode 100644
+index 0000000000..ffb61013f4
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-08-17-split-pane-composers-and-files-resize.md
+@@ -0,0 +1,36 @@
++# Agent Note: Per-pane composers, files divider drag, and pane chrome polish
++
++Status: implemented
++
++English | [中文](2026-08-17-split-pane-composers-and-files-resize.zh.md)
++
++## Problem
++
++A chat split leaves one shared composer at the column bottom: the pane grid spans sessions, so typing targets only the current session and the input card is not sized to the pane the user is looking at. Closing the pane bound to the current session also orphans the chrome — the header and shared composer follow the current session while the surviving pane shows another session, and the blank-single-pane hero hides a surviving content pane. Separately, the files panel's tree/editor split is fixed at 45/55, and the pane chrome is plain.
++
++## Decision
++
++**Mount one composer bar per chat leaf inside a split (bound to the leaf's session), re-flow panes on close, add a drag handle to the files split, and give panes a window treatment.**
++
++- The `conversation.composer.bar` declaration stays with the `conversation` entry (one declaration). `ConversationSessionOwnerProps` gains `renderComposerBar` — the root hands its composer-bar render down as an owner prop — and `ConversationSession` mounts it inside each chat leaf's `SessionBoundary`, so a cross-session leaf binds to its own input machine. The bar sits IN FLOW below the chat (the pane column sets `--dsh-composer-height: 0px`, so the chat's clearance collapses to a fixed 16px gap) and inherits the shared width axis, staying aligned with the pane's chat column. While the grid is active the shared bottom seat renders only the takeover chain (`fallback: null`), so question/approval cards survive the split without duplicating the bar.
++- Closing the pane bound to the current session adopts a surviving pane's session (`firstLeaf` + `openSession`) when the current session no longer owns any leaf, and the blank-single-pane hero guard now requires the single leaf to bind the current blank session — a surviving content pane keeps rendering and fills the grid.
++- `FilesPanel` gains a 6px horizontal divider between the tree and the editor, pointer-dragged to rebalance the two flex-grow shares (20%–80% clamp, `aria-valuenow` exposed).
++- Pane chrome becomes a window: 6px radius (tighter than 8px so blocky terminal grids do not fight the corners), a muted header strip, a 1px focus ring, and the session display title for cross-session leaves (`title · view`), resolved from the sessions list.
++
++## Alternatives considered
++
++- **Duplicate the composer slot declaration into `conversation.session`** — rejected: one declaration per slot is the slot-system rule, and the shared hero/takeover seat must keep rendering the same chain.
++- **Overlay the per-pane composer** — rejected: in-flow layout needs no height publication (the chat shrinks as the draft grows) and never covers the last message.
++- **Keep a shared composer that follows focus** — rejected: the user asked for a visible input per pane, sized with the pane.
++
++## Consequences
++
++- **Bought**: each split chat pane has its own input bound to its session; closing a pane re-flows the rest to fill; the files tree/editor split is draggable; panes read as distinct windows with their session named.
++- **Cost**: the composer bar is rendered from a second site (the root still renders it in the single-pane case); the files split state is panel-private (resets per session); the close-adopt step switches the current session, which re-focuses the surviving pane via the existing reconcile.
++
++## Verification
++
++- `skeleton.client.spec.tsx`: split duplicates the input (per-pane composers render, the shared seat hides) and closing the current-session pane adopts a surviving session with the remaining pane still rendering.
++- `pane-tree.client.spec.tsx`: cross-session pane chrome carries `session · view`.
++- `files-panel.client.spec.tsx`: divider drag rebalances the tree/editor shares and clamps.
++- Gates: repository typecheck, `test:gui`, `verify-agent-note-format`.
+diff --git a/.agents/notes/implemented/architecture/2026-08-17-split-pane-composers-and-files-resize.zh.md b/.agents/notes/implemented/architecture/2026-08-17-split-pane-composers-and-files-resize.zh.md
+new file mode 100644
+index 0000000000..6f14a8e805
+--- /dev/null
++++ b/.agents/notes/implemented/architecture/2026-08-17-split-pane-composers-and-files-resize.zh.md
+@@ -0,0 +1,36 @@
++# Agent Note:分屏窗格独立输入框、文件面板拖动调宽与窗格外观打磨
++
++Status: implemented
++
++[English](2026-08-17-split-pane-composers-and-files-resize.md) | 中文
++
++## Problem
++
++分屏后输入框仍只有一个,位于整列底部:窗格网格跨会话,输入只作用于当前会话,输入卡片也不会随用户正在看的窗格大小变化。关闭绑定当前会话的窗格后,顶部标题与输入框仍跟随当前会话,而存活的窗格显示的是另一个会话;空白单窗格的 hero 还会把存有内容的存活窗格整个隐藏。此外,文件面板的目录树/编辑器分割固定在 45/55,无法拖动;窗格外观也比较朴素。
++
++## Decision
++
++**分屏时让每个 Chat 窗格各挂一个输入框(绑定该窗格的会话),关闭窗格后重排铺满,给文件面板的目录/编辑器加拖动条,并给窗格套上「窗口」式外观。**
++
++- `conversation.composer.bar` 的声明仍归 `conversation` 入口所有(同一 slot 只能声明一次)。`ConversationSessionOwnerProps` 新增 `renderComposerBar`——根组件把自己的 composer-bar 渲染以 owner prop 下传;`ConversationSession` 在每个 Chat 叶片的 `SessionBoundary` 内挂载它,跨会话叶片因此绑定自己的输入机。输入框以**文档流**方式放在聊天区下方(窗格列设 `--dsh-composer-height: 0px`,聊天区清空高度退化为固定 16px 间距),并继承共享宽度轴,始终与窗格内的聊天列对齐。分屏激活时,底部公共座位只渲染 takeover 链(`fallback: null`),question/approval 卡片在分屏下不会消失,也不会重复渲染输入框。
++- 关闭绑定当前会话的窗格时,若当前会话不再拥有任何叶片,则采纳存活叶片的会话(`firstLeaf` + `openSession`);空白单窗格 hero 的判定改为「唯一叶片绑定当前空白会话」——存有内容的存活窗格继续渲染并铺满网格。
++- `FilesPanel` 在目录树与编辑器之间加一条 6px 水平分隔条,指针拖动按 flex-grow 比例重分配(20%–80% 夹紧,暴露 `aria-valuenow`)。
++- 窗格外观升级为窗口:圆角由 8px 收紧到 6px(避免块状终端网格与圆角打架),工具条加浅色底纹,聚焦态加 1px 光圈;跨会话叶片在工具条显示会话标题(`会话标题 · 视图`),取自 sessions 列表。
++
++## Alternatives considered
++
++- **在 `conversation.session` 里重复声明 composer-bar slot** —— 否决:slot 系统规定每个 slot 只能声明一次,且公共 hero/takeover 座位仍需渲染同一条链。
++- **让分屏输入框悬浮覆盖聊天区** —— 否决:文档流布局无需发布高度(草稿变高时聊天区自动收缩),也永远不会盖住最后一条消息。
++- **保留单个跟随焦点的公共输入框** —— 否决:用户要求每个窗格各有一个、大小随窗格的可见输入框。
++
++## Consequences
++
++- **获得**:分屏的每个 Chat 窗格都有绑定自己会话的独立输入框;关闭窗格后其余窗格重排铺满;文件目录/编辑器分割可拖动;窗格呈现为带会话名的独立窗口。
++- **代价**:composer-bar 多了一个渲染点(单窗格场景仍由根组件渲染);文件分割状态为面板私有(随会话重挂载重置);关闭采纳动作会切换当前会话,由既有 reconcile 重新聚焦存活窗格。
++
++## Verification
++
++- `skeleton.client.spec.tsx`:分屏复制输入框(每个窗格一个,公共座位隐藏);关闭当前会话窗格后采纳存活会话,剩余窗格继续渲染。
++- `pane-tree.client.spec.tsx`:跨会话窗格工具条带 `会话 · 视图`。
++- `files-panel.client.spec.tsx`:拖动分隔条重分配目录/编辑器比例并夹紧。
++- Gates:仓库 typecheck、`test:gui`、`verify-agent-note-format`。
 diff --git a/docs/capability-seams.md b/docs/capability-seams.md
 index a990a9dd4d..634cd8b0bd 100644
 --- a/docs/capability-seams.md
