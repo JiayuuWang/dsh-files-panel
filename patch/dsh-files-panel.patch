@@ -1464,7 +1464,7 @@ index 0000000000..011ef1835a
 +  return <div className={css.root} data-conversation-composer-overlay="">{renderNode(props, root)}</div>
 +}
 diff --git a/packages/client/ui-conversation/src/client/apply.ts b/packages/client/ui-conversation/src/client/apply.ts
-index f57caea9e5..d52dc05b37 100644
+index f57caea9e5..3e2940fb88 100644
 --- a/packages/client/ui-conversation/src/client/apply.ts
 +++ b/packages/client/ui-conversation/src/client/apply.ts
 @@ -18,6 +18,7 @@ import type {
@@ -1508,7 +1508,15 @@ index f57caea9e5..d52dc05b37 100644
    const submissionPolicy = new ComposerSubmissionPolicy(
      ctx.settingsScope.bind<ConversationSettings>({ namespace: CONVERSATION_SETTINGS_NAMESPACE }),
    )
-@@ -238,6 +258,7 @@ export function apply(ctx: Context): void {
+@@ -211,6 +231,7 @@ export function apply(ctx: Context): void {
+     },
+     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+       hooks: { composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId) },
++      paneStore,
+       selectWorkspace: async (workspaceId) => {
+         const nextId = await workspaces.connectWorkspace(workspaceId)
+         if (sessionId !== undefined && nextId !== sessionId) {
+@@ -238,6 +259,7 @@ export function apply(ctx: Context): void {
    // session appears after a Workspace pick.
    slots.register({
      name: 'conversation.session',
@@ -1516,7 +1524,7 @@ index f57caea9e5..d52dc05b37 100644
      children: {
        'conversation.view': { kind: 'list', scope: 'session' },
      },
-@@ -246,6 +267,15 @@ export function apply(ctx: Context): void {
+@@ -246,6 +268,15 @@ export function apply(ctx: Context): void {
        const conversation = concreteConversation(ctx)
        return {
          views,
@@ -1532,7 +1540,7 @@ index f57caea9e5..d52dc05b37 100644
          releaseSessionImages: (id) => { conversation.releaseSessionImages(id) },
          bindDraftMirror: write => inputHub.shell(sessionId).bindMirror(write),
        }
-@@ -264,10 +294,27 @@ export function apply(ctx: Context): void {
+@@ -264,10 +295,27 @@ export function apply(ctx: Context): void {
      store: chatStore,
      inject: (): ConversationSessionHeaderInjected => ({
        views,
@@ -1560,7 +1568,7 @@ index f57caea9e5..d52dc05b37 100644
    // The default composer body: its own single slot inside the composer
    // chain's fallback. Public machine surface arrives via the
    // provide channel above; the keyboard command face and the stop/retry
-@@ -389,6 +436,7 @@ export function apply(ctx: Context): void {
+@@ -389,6 +437,7 @@ export function apply(ctx: Context): void {
        return {
          openDetails: (target) => {
            actions.select(target)
@@ -1568,7 +1576,7 @@ index f57caea9e5..d52dc05b37 100644
            layout.openDetails()
          },
          fileMentions: owner => ctx.get('chatFileMentions')?.forClosing(owner),
-@@ -405,7 +453,7 @@ export function apply(ctx: Context): void {
+@@ -405,7 +454,7 @@ export function apply(ctx: Context): void {
          // the first view, and the untouched inspect target stays inert.
          inspectCall: (callId) => {
            actions.setInspect({ callId })
@@ -1577,7 +1585,7 @@ index f57caea9e5..d52dc05b37 100644
          },
          chatScroll: {
            save: (position) => {
-@@ -446,6 +494,7 @@ export function apply(ctx: Context): void {
+@@ -446,6 +495,7 @@ export function apply(ctx: Context): void {
      locale: NS,
      children: {
        'conversation.details.tool': { kind: 'single', scope: 'session' },
@@ -1738,7 +1746,7 @@ index 0000000000..88be7c937e
 +/** One node of the pane tree: a leaf or a recursive split. */
 +export type PaneNode = PaneLeaf | PaneSplit
 diff --git a/packages/client/ui-conversation/src/client/contract/slots.ts b/packages/client/ui-conversation/src/client/contract/slots.ts
-index 21259146a7..d164a3dedf 100644
+index 21259146a7..a3c489433f 100644
 --- a/packages/client/ui-conversation/src/client/contract/slots.ts
 +++ b/packages/client/ui-conversation/src/client/contract/slots.ts
 @@ -18,6 +18,7 @@ import type {
@@ -1796,7 +1804,20 @@ index 21259146a7..d164a3dedf 100644
  /** Business callbacks injected into the conversation slot. */
  export interface ConversationInjected {
    /**
-@@ -432,6 +452,12 @@ export interface ConversationSessionInjected {
+@@ -422,6 +442,12 @@ export interface ConversationInjected {
+    * the root renders as the inert composer's placeholder.
+    */
+   hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
++  /**
++   * The root-scoped pane-layout store (cross-session split grid). The root
++   * reads it to keep the composer docked when a split is open: the centered
++   * blank-session hero only fits a single fresh pane, not a multi-pane grid.
++   */
++  paneStore: PaneStoreInstance
+ }
+ 
+ /** Business callbacks injected into the strict Session body seat. */
+@@ -432,6 +458,12 @@ export interface ConversationSessionInjected {
      subscribe: (fn: () => void) => () => void
      version: () => number
    }
@@ -1809,7 +1830,7 @@ index 21259146a7..d164a3dedf 100644
    /** Release historical image URLs when this rendered session scope unmounts. */
    releaseSessionImages: (sessionId: SessionId) => void
    /** Bind the input machine's draft persistence mirror to the session store. */
-@@ -446,6 +472,8 @@ export interface ConversationSessionHeaderInjected {
+@@ -446,6 +478,8 @@ export interface ConversationSessionHeaderInjected {
      subscribe: (fn: () => void) => () => void
      version: () => number
    }
@@ -1818,7 +1839,7 @@ index 21259146a7..d164a3dedf 100644
    /** Select a real Session through the runtime navigation owner. */
    open: (sessionId: SessionId) => void
  }
-@@ -579,12 +607,13 @@ export type ConversationSlotProps =
+@@ -579,12 +613,13 @@ export type ConversationSlotProps =
    & InjectFace<ConversationInjected>
    & PropsLocale<'conversation'>
  
@@ -1833,7 +1854,7 @@ index 21259146a7..d164a3dedf 100644
  
  /** Full strict-session header props: shared store, tabs/actions render shares, navigation, and locale. */
  export type ConversationSessionHeaderSlotProps =
-@@ -721,8 +750,8 @@ export interface DetailsInjected {
+@@ -721,8 +756,8 @@ export interface DetailsInjected {
    closeDetails: () => void
  }
  
@@ -2222,8 +2243,57 @@ index 0000000000..ccb4388dba
 +  }
 +  return undefined
 +}
+diff --git a/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx b/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx
+index ef1221cd99..0b4297fcd0 100644
+--- a/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.tsx
+@@ -2,10 +2,11 @@
+ // chain, AND the composer bar (session-maybe slot) stay mounted across
+ // no-session/session transitions — the bar renders inert via owner props.
+ 
+-import { useCallback, useEffect, useRef, useState } from 'react'
++import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+ import clsx from 'clsx'
+ import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
+ import type { ConversationSlotProps, InputZone } from '../contract/slots.ts'
++import { isSingle } from '../pane-tree.ts'
+ import { HeroGlow, HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
+ import css from './ConversationRoot.module.css'
+ 
+@@ -14,7 +15,7 @@ export type ConversationRootProps = ConversationSlotProps
+ 
+ export function ConversationRoot({
+   sessionId, useSession, useSessions, useWorkspaces, useInput, useComposerBlock,
+-  renderSlot, renderSlotChain, selectWorkspace, t,
++  renderSlot, renderSlotChain, selectWorkspace, paneStore, t,
+ }: ConversationRootProps) {
+   const openState = useSession(s => s.openState)
+   const composerPhase = useSession(s => s.composerPhase)
+@@ -27,6 +28,10 @@ export function ConversationRoot({
+   // A plugin this package cannot import (ui-model-selection) says this session cannot
+   // send; its reason is already localized by whoever raised it.
+   const composerBlock = useComposerBlock(block => block)
++  // A multi-pane split keeps the composer docked: the centered blank-session
++  // hero only fits a single fresh pane, not a grid whose siblings hold content.
++  const paneState = useSyncExternalStore(paneStore.subscribe, paneStore.getSnapshot)
++  const splitActive = paneState.panes !== null && !isSingle(paneState.panes)
+ 
+   const [pickerOpen, setPickerOpen] = useState(false)
+   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
+@@ -75,9 +80,9 @@ export function ConversationRoot({
+   // summary-blank session is the hero before its open starts (`cold`) and
+   // after one fails (`error`) for the same reason — there is no history.
+   const settling = sessionId !== undefined && composerPhase === 'blank' && openState === 'loading'
+-    && summaryBlank !== true
++    && summaryBlank !== true && !splitActive
+   const hero = sessionId === undefined
+-    || (composerPhase === 'blank' && (openState === 'open' || summaryBlank === true))
++    || (composerPhase === 'blank' && (openState === 'open' || summaryBlank === true) && !splitActive)
+   const zone: InputZone | undefined =
+     session === undefined || inputState === undefined ? undefined : { session, input: inputState }
+ 
 diff --git a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
-index d576aa175d..9b1bd8be4b 100644
+index d576aa175d..f6ae78764d 100644
 --- a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
 +++ b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
 @@ -6,7 +6,8 @@ import type { SessionId, SessionListState, SessionSummary } from '@deepseek-ai/d
@@ -2322,7 +2392,7 @@ index d576aa175d..9b1bd8be4b 100644
    const composerPhase = useSession(s => s.composerPhase)
    const blank = useSession(s => s.blank)
    const inputState = useInput(s => s)
-@@ -162,13 +163,68 @@ export function ConversationSession({
+@@ -162,13 +163,76 @@ export function ConversationSession({
      releaseSessionImages(sessionId)
    }, [releaseSessionImages, sessionId])
  
@@ -2378,15 +2448,23 @@ index d576aa175d..9b1bd8be4b 100644
 +          const leaf = findLeaf(panes, paneId)
 +          if (leaf === undefined) return
 +          const same = leaf.sessionId
-+          void (leaf.viewId === 'chat'
-+            ? newSessionFor(same).then(newSessionId => {
-+              paneStore.actions.splitPane(paneId, direction, newSessionId)
-+              openSession(newSessionId)
-+            })
-+            : Promise.resolve().then(() => {
-+              paneStore.actions.splitPane(paneId, direction, same)
-+              openSession(same)
-+            }))
++          const doSplit = (sessionId: SessionId) => {
++            paneStore.actions.splitPane(paneId, direction, sessionId)
++            try {
++              openSession(sessionId)
++            } catch {
++              // The fresh session may not be listed yet; the reconcile listener
++              // focuses it the moment it lands. The split itself already ran.
++            }
++          }
++          if (leaf.viewId === 'chat') {
++            // New Session: mint the sibling session, then split onto it. If
++            // creation fails, fall back to a same-session split rather than
++            // dropping the user's gesture (unhandled rejection).
++            void newSessionFor(same).then(doSplit).catch(() => { doSplit(same) })
++          } else {
++            doSplit(same)
++          }
 +        }}
 +        onClose={paneId => { paneStore.actions.closePane(paneId) }}
 +        onFullscreen={paneId => { paneStore.actions.toggleFullscreen(paneId) }}
@@ -3147,7 +3225,7 @@ index 76ed4e0de5..771d676739 100644
    })
  })
 diff --git a/packages/client/ui-conversation/tests/skeleton.client.spec.tsx b/packages/client/ui-conversation/tests/skeleton.client.spec.tsx
-index acf618fb2b..81013564d0 100644
+index acf618fb2b..7aaca73fdd 100644
 --- a/packages/client/ui-conversation/tests/skeleton.client.spec.tsx
 +++ b/packages/client/ui-conversation/tests/skeleton.client.spec.tsx
 @@ -17,6 +17,7 @@ import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -3188,7 +3266,15 @@ index acf618fb2b..81013564d0 100644
          />
        )
      }
-@@ -251,7 +259,7 @@ function mount(
+@@ -244,6 +252,7 @@ function mount(
+     useComposerBlock: select => select(options.composerBlock),
+     useInput,
+     inputActions,
++    paneStore,
+     renderSlot,
+     renderSlotChain,
+     selectWorkspace: retargetWorkspace,
+@@ -251,7 +260,7 @@ function mount(
    }
    const view = render(<ConversationRoot {...props} />)
    return {
@@ -3197,7 +3283,7 @@ index acf618fb2b..81013564d0 100644
      pickerOwner: () => pickerOwner,
      rerender: () => { view.rerender(<ConversationRoot {...props} />) },
    }
-@@ -435,7 +443,7 @@ describe('ConversationRoot resident composer', () => {
+@@ -435,7 +444,7 @@ describe('ConversationRoot resident composer', () => {
  
    it('keeps pending takeover interaction accessible outside the Chat view', () => {
      const b = mount(conversationSnapshot({ pending: [{} as never] }))
@@ -3206,7 +3292,7 @@ index acf618fb2b..81013564d0 100644
      expect(b.view.getByTestId('view-trajectory')).toBeTruthy()
      expect(b.view.getByRole('textbox')).toBeTruthy()
    })
-@@ -448,7 +456,7 @@ describe('ConversationRoot resident composer', () => {
+@@ -448,7 +457,7 @@ describe('ConversationRoot resident composer', () => {
      const b = mount(conversationSnapshot(), undefined, undefined, { viewTabs })
      // A removed dynamic view leaves its persisted id behind. The visible
      // fallback is Chat and must stay Chat when another lower-order view lands.
@@ -3215,7 +3301,7 @@ index acf618fb2b..81013564d0 100644
      expect(b.view.getByTestId('view-chat')).toBeTruthy()
  
      viewTabs.unshift({ id: 'new-view', label: 'New view' })
-@@ -460,6 +468,17 @@ describe('ConversationRoot resident composer', () => {
+@@ -460,6 +469,17 @@ describe('ConversationRoot resident composer', () => {
      expect(b.view.getByRole('tab', { name: 'New view' }).getAttribute('aria-selected')).toBe('false')
    })
  

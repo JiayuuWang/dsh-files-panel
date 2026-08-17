@@ -442,6 +442,12 @@ export interface ConversationInjected {
    * the root renders as the inert composer's placeholder.
    */
   hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
+  /**
+   * The root-scoped pane-layout store (cross-session split grid). The root
+   * reads it to keep the composer docked when a split is open: the centered
+   * blank-session hero only fits a single fresh pane, not a multi-pane grid.
+   */
+  paneStore: PaneStoreInstance
 }
 
 /** Business callbacks injected into the strict Session body seat. */

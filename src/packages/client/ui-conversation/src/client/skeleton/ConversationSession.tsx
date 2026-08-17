@@ -210,15 +210,23 @@ export function ConversationSession({
           const leaf = findLeaf(panes, paneId)
           if (leaf === undefined) return
           const same = leaf.sessionId
-          void (leaf.viewId === 'chat'
-            ? newSessionFor(same).then(newSessionId => {
-              paneStore.actions.splitPane(paneId, direction, newSessionId)
-              openSession(newSessionId)
-            })
-            : Promise.resolve().then(() => {
-              paneStore.actions.splitPane(paneId, direction, same)
-              openSession(same)
-            }))
+          const doSplit = (sessionId: SessionId) => {
+            paneStore.actions.splitPane(paneId, direction, sessionId)
+            try {
+              openSession(sessionId)
+            } catch {
+              // The fresh session may not be listed yet; the reconcile listener
+              // focuses it the moment it lands. The split itself already ran.
+            }
+          }
+          if (leaf.viewId === 'chat') {
+            // New Session: mint the sibling session, then split onto it. If
+            // creation fails, fall back to a same-session split rather than
+            // dropping the user's gesture (unhandled rejection).
+            void newSessionFor(same).then(doSplit).catch(() => { doSplit(same) })
+          } else {
+            doSplit(same)
+          }
         }}
         onClose={paneId => { paneStore.actions.closePane(paneId) }}
         onFullscreen={paneId => { paneStore.actions.toggleFullscreen(paneId) }}
