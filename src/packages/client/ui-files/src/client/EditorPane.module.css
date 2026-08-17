@@ -1,0 +1,21 @@
+/* CodeMirror host: fills the preview pane below the header; the view owns its
+   own scroll. */
+
+.host {
+  flex: 1;
+  min-height: 0;
+}
+
+.host > :global(.cm-editor) {
+  height: 100%;
+  font-size: 12px;
+}
+
+.host > :global(.cm-scroller) {
+  font-family: var(--ds-font-family-code);
+  line-height: 20px;
+}
+
+.host :global(.cm-content) {
+  padding: 8px 12px;
+}

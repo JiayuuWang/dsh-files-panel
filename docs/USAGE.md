@@ -1,93 +1,56 @@
-# dsh-files-panel — Usage Guide
+# Usage
 
-This plugin adds three capabilities to the DeepSeek Harness Web GUI (the `dsh web` page):
+This plugin adds an interactive **Terminal**, a workspace **file browser**, and **tmux-style split panes** to the DeepSeek Harness web GUI.
 
-1. **Terminal tab** — an interactive per-session shell (PowerShell on Windows, bash elsewhere), beside Chat and Trajectory.
-2. **File explorer** — a top-right toggle that opens the workspace file tree with type icons and a syntax-highlighting editor.
-3. **Split panes** — a tmux-style layout: split Chat / Trajectory / Terminal right or down, fullscreen a pane, and drag the dividers.
+## Prerequisites
 
-The plugin is not a standalone npm install. It is a set of packages inside the `deepseek-harness` monorepo, distributed here as **cumulative git patches** (one per milestone, each containing every earlier milestone). Apply the *latest* patch to a clean `deepseek-harness` checkout, then build.
+- A [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) checkout at base commit `47f943859b`
+- Node `^22.19 || >=24` and pnpm
 
----
-
-## 1. Prerequisites
-
-- Node.js `^22.19` or `>=24`, and `pnpm` (v11).
-- A checkout of [`deepseek-ai/deepseek-harness`](https://github.com/deepseek-ai/deepseek-harness) at the pinned base commit **`47f943859b`**.
-- (Optional) a `DEEPSEEK_API_KEY` to actually run the agent; the UI and the three features above work without it.
-
-## 2. Install (apply the patch)
-
-In the `deepseek-harness` repository root, at base commit `47f943859b`:
+## Install
 
 ```bash
-git apply ../dsh-files-panel/patch/c13-pane-terminal-bugfixes.dsh.diff
+# from the deepseek-harness repo root
+git apply path/to/dsh-files-panel.patch
 pnpm install
 pnpm run build
 ```
 
-> Use the **latest** checkpoint patch (`c13-…`). It is cumulative: it includes C1–C12, so there is no need to apply the earlier patches one by one. (The older `c1…c12` files are kept only as the milestone history.)
-
-## 3. Run
-
-From the `deepseek-harness` repository root:
+Start the web GUI from the workspace (never `npx`):
 
 ```bash
 pnpm dsh --profile web
 ```
 
-Open the printed URL (normally `http://127.0.0.1:3080`) and **hard-refresh** (`Ctrl+F5`).
+Open the printed URL (default `http://127.0.0.1:3080`) and hard-refresh `Ctrl+F5`. Restart the server if you upgraded an already-running instance.
 
-> **Important:** run it with the workspace launcher `pnpm dsh --profile web`, **not** `npx @deepseek-ai/dsh web`. The `npx` form serves the *published* snapshot from the npm cache and will not include this plugin's changes.
+## Terminal
 
-## 4. Use the features
+1. Open a session, then click the **Terminal** tab (beside Chat / Trajectory).
+2. A live shell starts immediately — PowerShell on Windows, bash on Linux/macOS.
+3. The toolbar has:
+   - a **shell picker** — segmented buttons (`默认` / `pwsh` / `cmd` / `bash` / `zsh` / `sh`); the active one is highlighted; picking another restarts the terminal with that shell;
+   - a **restart** button that closes and reopens the shell.
+4. Switching tabs away and back re-attaches to the same shell. A split Terminal pane owns its own independent shell.
 
-### 4.1 Terminal tab
+## File browser
 
-1. Open (or create) a session.
-2. In the header, click the **终端 / Terminal** tab (beside 对话/Chat and Trajectory).
-3. Type shell commands directly. The shell is PowerShell on Windows, bash on Linux/macOS.
-4. Switching away to another tab and back **keeps the same shell** (it re-attaches). The **重启终端 / Restart terminal** button closes and reopens a fresh shell.
+1. Click the **folder icon** in the session header (top right).
+2. The right panel shows the workspace file tree, each row with a type icon.
+3. Click a file to open it with syntax highlighting; edit and press **Save** (`Ctrl/Cmd+S`). A version conflict prompts you to reload. Keymaps can switch between Default / Vim / Emacs.
 
-### 4.2 File explorer
+## Split panes
 
-1. Click the **folder icon** in the top-right of the session header (the "Toggle file explorer" button).
-2. The right-hand details column opens on the **文件 / Files** tab, showing the current workspace's file tree.
-3. Click a directory to expand, a file to open it. Files render with **syntax highlighting**; type icons (code / json / markdown / image / …) identify each row.
-4. Edit the file in the editor and press **Save** (or `Ctrl/Cmd+S`). If the file changed elsewhere, a conflict banner offers **重新载入 / Reload**. The keymap selector switches between Default / Vim / Emacs.
+Each pane has a thin toolbar:
 
-### 4.3 Split panes
-
-1. Every pane has a thin chrome bar with four buttons:
-   - **⫞** — split right (side-by-side)
-   - **⫟** — split down (stacked)
-   - **⛶** — fullscreen this pane (click again to leave)
-   - **✕** — close this pane
-2. Splitting creates a new pane (starting on Chat). Switch a pane's view by clicking it (to focus it), then clicking a header tab (Chat / Trajectory / Terminal) — the tabs act on the **focused** pane.
-3. Drag the divider between two panes to resize; each side keeps at least 10%.
-4. Splits are **recursive** — any pane can be split again, and each pane can be fullscreened independently. The layout is persisted per session.
-
----
-
-## 5. Known limitations
-
-- The terminal polls output (~60 ms) rather than streaming; it runs at a fixed size and inherits `TERM=dumb` (no color/full-screen programs) from the subprocess layer.
-- One terminal per session.
-- Split panes of the **same** view share that view's state (e.g. two Chat panes share the draft/selection).
-- The file tree and terminal are human-facing only: nothing they show is injected into the model.
-
-## 6. Milestones (checkpoints)
-
-| Checkpoint | Content |
+| Button | Action |
 |---|---|
-| C1 | `workspace-files` capability seam + `files` wire domain |
-| C2 | File panel (details "Tools / Files" tabs, tree, read-only preview) |
-| C3 | CodeMirror edit/save + conflict detection + `user/file-edit` session event |
-| C4 | vim / emacs keymaps |
-| C5 | Details-panel open affordance (tool-row "详情" pill) |
-| C6 | Terminal tab (`web-terminal` seam + `terminal` wire + xterm.js) |
-| C7 | Explorer toggle + file icons + syntax highlighting |
-| C8 | tmux-style split panes |
-| C9 | Pane layout fix (view-owns-scroller) |
+| **⫞** | split right (side by side) |
+| **⫟** | split down (stacked) |
+| **⛶** | fullscreen this pane (toggle) |
+| **✕** | close this pane |
 
-Each patch is cumulative from the base commit; apply only the latest.
+- Splitting inherits the source view: a **Trajectory** pane duplicates the trajectory; a **Terminal** pane opens a **new terminal**; a **Chat** pane starts a **new session** shown in the new pane — two sessions side by side, each independently usable.
+- Focus a pane, then click the top tab (Chat / Trajectory / Terminal) to switch that pane's view.
+- Drag the dividers to resize (each side keeps ≥ 10%); panes track the window size.
+- Splits are recursive and the layout persists across reloads; the title bar and composer follow the focused pane.

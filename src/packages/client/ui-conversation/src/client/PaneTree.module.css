@@ -1,0 +1,116 @@
+.root {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.split {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.splitRow {
+  flex-direction: row;
+}
+
+.splitColumn {
+  flex-direction: column;
+}
+
+.fragment {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.25));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pane.focused {
+  border-color: var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.8));
+}
+
+.chrome {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.25));
+}
+
+.viewLabel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary, #888);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chromeActions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.chromeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #888);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chromeButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.1));
+  color: var(--dsw-alias-label-primary, #eee);
+}
+
+.view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.divider {
+  flex: 0 0 auto;
+  background: transparent;
+  z-index: 1;
+}
+
+.divider[data-direction='row'] {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.divider[data-direction='column'] {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.divider:hover {
+  background: var(--dsw-alias-interactive-accent, rgba(60, 130, 255, 0.35));
+}

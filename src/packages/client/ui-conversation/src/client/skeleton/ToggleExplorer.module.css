@@ -1,0 +1,20 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-fg-muted, #888);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  color: inherit;
+  background: var(--dsw-bg-hover, rgba(127, 127, 127, 0.1));
+}
+
+.active {
+  color: inherit;
+}
