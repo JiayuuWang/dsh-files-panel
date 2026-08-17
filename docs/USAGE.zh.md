@@ -9,7 +9,13 @@
 
 ## 安装
 
-**一键安装(推荐)**——在插件仓库里运行安装器,传入 `deepseek-harness` 检出目录:
+**npm 一条命令(推荐,无需 clone 插件仓库)**——传入 `deepseek-harness` 检出目录:
+
+```bash
+npx @jiayuw/dsh-files-panel <deepseek-harness 检出目录>
+```
+
+**或者用插件仓库自带的安装器**:
 
 ```powershell
 # Windows PowerShell

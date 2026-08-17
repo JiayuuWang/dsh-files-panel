@@ -9,7 +9,13 @@ This plugin adds an interactive **Terminal**, a workspace **file browser**, and 
 
 ## Install
 
-**One command (recommended)** — from this plugin checkout, pass your `deepseek-harness` checkout:
+**One command via npm (recommended, no repo clone needed)** — pass your `deepseek-harness` checkout:
+
+```bash
+npx @jiayuw/dsh-files-panel <path-to-deepseek-harness-checkout>
+```
+
+**Or from this plugin checkout** — run the bundled installer:
 
 ```powershell
 # Windows PowerShell

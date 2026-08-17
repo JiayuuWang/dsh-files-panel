@@ -15,17 +15,26 @@ This plugin extends the [DeepSeek Harness](https://github.com/deepseek-ai/deepse
 
 ## Install
 
-The plugin is a set of packages inside the `deepseek-harness` monorepo. Apply the single cumulative patch to a clean checkout, then build — **one command**:
+The plugin is a set of packages inside the `deepseek-harness` monorepo. It modifies core packages, so it is installed by applying the cumulative patch to a clean checkout and building with the app — three ways, from easiest to most manual:
+
+**1. npm (recommended)** — no need to clone this repo (package: [`@jiayuw/dsh-files-panel`](https://www.npmjs.com/package/@jiayuw/dsh-files-panel)):
+
+```bash
+npx @jiayuw/dsh-files-panel <deepseek-harness checkout>
+```
+
+The npm package ships the patch and an installer bin: it validates the checkout, applies `patch/dsh-files-panel.patch` (skipped when already applied), then runs `pnpm install` and `pnpm run build`. (`--apply-only` skips the build for a dry check.)
+
+**2. Installer scripts** from this checkout:
 
 ```bash
 # Windows PowerShell:  .\install.ps1 <deepseek-harness checkout>
 # Linux/macOS/Git Bash: ./install.sh  <deepseek-harness checkout>
 ```
 
-The installer validates the checkout, applies `patch/dsh-files-panel.patch` (skipped when already applied), then runs `pnpm install` and `pnpm run build`. Manually, that is:
+**3. Manually** — in a `deepseek-harness` checkout at base commit `47f943859b`:
 
 ```bash
-# in a deepseek-harness checkout at base commit 47f943859b
 git apply path/to/dsh-files-panel.patch
 pnpm install
 pnpm run build
@@ -46,6 +55,7 @@ Full usage: [docs/USAGE.md](docs/USAGE.md) · [docs/USAGE.zh.md](docs/USAGE.zh.m
 
 ```
 patch/dsh-files-panel.patch   the single cumulative patch (everything above)
+package.json, bin/            npm package (@jiayuw/dsh-files-panel) — the npx installer
 install.ps1 / install.sh      one-command installer (apply + pnpm install + build)
 src/packages/                 the plugin source, mirroring the monorepo packages/ layout
 assets/layout.png             the layout screenshot shown above
