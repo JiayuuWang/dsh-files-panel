@@ -2223,7 +2223,7 @@ index 0000000000..ccb4388dba
 +  return undefined
 +}
 diff --git a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
-index d576aa175d..cc32e71b9a 100644
+index d576aa175d..6217ddce52 100644
 --- a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
 +++ b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
 @@ -6,7 +6,8 @@ import type { SessionId, SessionListState, SessionSummary } from '@deepseek-ai/d
@@ -2367,7 +2367,7 @@ index d576aa175d..cc32e71b9a 100644
 +        onFocus={paneId => {
 +          paneStore.actions.setFocusedPane(paneId)
 +          const leaf = findLeaf(panes, paneId)
-+          if (leaf !== undefined && leaf.sessionId !== sessionId) openSession(leaf.sessionId as SessionId)
++          if (leaf !== undefined && leaf.sessionId !== sessionId) openSession(leaf.sessionId)
 +        }}
 +        onSplit={(paneId, direction) => {
 +          const leaf = findLeaf(panes, paneId)

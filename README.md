@@ -2,7 +2,7 @@
 
 DeepSeek Harness Web GUI 插件:给 `dsh web` 页面加三项能力——**交互式 Terminal 标签页**、**文件资源管理器(树 + 图标 + 语法高亮编辑)**、**tmux 式分屏**。
 
-**私有开发仓库。** v1 开发基于 deepseek-harness 仓库内插件体系(需随 dsh 构建)。
+**开源仓库。** v1 开发基于 deepseek-harness 仓库内插件体系(需随 dsh 构建)。
 
 > **使用说明(重点):** 详细的中英文安装/使用步骤见 **[docs/USAGE.md](docs/USAGE.md)**(中文见 [docs/USAGE.zh.md](docs/USAGE.zh.md))。
 
